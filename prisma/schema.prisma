@@ -1,13 +1,42 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String?
+  createdAt   DateTime     @default(now())
+  invitations Invitation[]
+}
+
+model Invitation {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  title           String
+  slug            String   @unique
+  templateId      String
+  header          Json     @default("{}")
+  eventInfo       Json     @default("{}")
+  mainText        Json     @default("{}")
+  gallery         Json     @default("{}")
+  rsvp            Json     @default("{}")
+  footer          Json     @default("{}")
+  theme           Json     @default("{}")
+  enabledSections String[] @default(["header","eventInfo","mainText","rsvp","footer"])
+  sectionOrder    String[] @default(["header","eventInfo","mainText","gallery","rsvp","footer"])
+  status          String   @default("draft")
+  publishedUrl    String?
+  viewCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([slug])
 }
