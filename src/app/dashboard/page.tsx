@@ -57,7 +57,7 @@ export default async function DashboardPage() {
 
         {/* Invitation list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {invitations.map(inv => (
+          {invitations.map((inv: any) => (
             <div key={inv.id} style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>{inv.title}</div>
