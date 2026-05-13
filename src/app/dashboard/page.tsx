@@ -12,9 +12,12 @@ export default async function DashboardPage() {
     orderBy: { updatedAt: 'desc' },
   })
 
+  const published = invitations.filter(i => i.status === 'published').length
+  const totalViews = invitations.reduce((sum, i) => sum + i.viewCount, 0)
+
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
-      
+
       {/* Navbar */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eee', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
         <span style={{ fontWeight: 600, fontSize: 16 }}>Invitia</span>
@@ -27,10 +30,10 @@ export default async function DashboardPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Undangan Saya</h1>
-            <p style={{ fontSize: 14, color: '#888' }}>{invitations.length} undangan</p>
+            <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 2 }}>Undangan Saya</h1>
+            <p style={{ fontSize: 14, color: '#888' }}>Kelola semua undangan digitalmu</p>
           </div>
           <Link
             href="/dashboard/new"
@@ -38,6 +41,21 @@ export default async function DashboardPage() {
           >
             + Buat Baru
           </Link>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+          {[
+            { label: 'Total Undangan', value: invitations.length, color: '#1a1a1a' },
+            { label: 'Published', value: published, color: '#166534' },
+            { label: 'Draft', value: invitations.length - published, color: '#92400e' },
+            { label: 'Total Views', value: totalViews, color: '#1d4ed8' },
+          ].map(stat => (
+            <div key={stat.label} style={{ background: '#fff', borderRadius: 10, border: '1px solid #eee', padding: '14px 16px' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: stat.color }}>{stat.value}</div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{stat.label}</div>
+            </div>
+          ))}
         </div>
 
         {/* Empty state */}
