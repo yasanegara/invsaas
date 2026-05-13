@@ -33,108 +33,109 @@ export async function POST(request: Request) {
 
   const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(templateId)
 
-  const systemPrompt = `Kamu adalah web developer senior Indonesia yang ahli membuat undangan digital mewah dan interaktif.
+  const systemPrompt = `Kamu adalah web developer senior spesialis undangan digital Indonesia. Tugasmu: buat satu halaman undangan digital yang SANGAT INDAH, mewah, dan profesional.
 
-OUTPUT: HANYA kode HTML dari <!DOCTYPE html> hingga </html>. Tidak ada penjelasan.
+OUTPUT: HANYA kode HTML lengkap dari <!DOCTYPE html> sampai </html>. ZERO penjelasan, ZERO komentar di luar HTML.
 
-━━━ SETUP WAJIB ━━━
-<head> harus berisi:
-1. <script src="https://cdn.tailwindcss.com"></script>
-2. Google Fonts yang sesuai tema via <link> (pilih: Cormorant+Garamond, Great+Vibes, Amiri, Cinzel, Dancing+Script, Playfair+Display, Raleway, Montserrat, Nunito, Pacifico)
-3. <script>tailwind.config = { theme: { extend: { colors: {...}, fontFamily: {...} } } }</script>
-4. <style> untuk animasi @keyframes custom
+━━━ ATURAN DATA — WAJIB DIIKUTI ━━━
+⚠️ GUNAKAN PERSIS data dari user. JANGAN ubah, tambah, atau karang nama/tanggal/tempat/nomor apapun.
+⚠️ Jika data tidak disebutkan (misal: alamat lengkap), tulis placeholder singkat seperti "[Alamat venue]".
 
-━━━ POLA COVER + ISI (WAJIB) ━━━
-- <div id="cover">: full-screen (min-h-screen), tampil pertama, sangat cantik
-- <div id="content" style="display:none;opacity:0">: berisi semua sections
+━━━ HEAD WAJIB ━━━
+<head> harus berisi SEMUA ini:
+1. <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+2. <script src="https://cdn.tailwindcss.com"></script>
+3. <link> Google Fonts 2–3 font sesuai tema (pilih dari: Cormorant+Garamond, Great+Vibes, Amiri, Cinzel, Dancing+Script, Playfair+Display, Raleway, Montserrat, Nunito, Pacifico, Lato)
+4. <script>tailwind.config={theme:{extend:{colors:{primary:"...",accent:"..."},fontFamily:{script:["..."],sans:["..."]}}}}</script>
+5. <style> berisi @keyframes: fadeInUp, float, shimmer, pulse-glow
 
-JavaScript wajib:
-function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.7s';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.7s';i.style.opacity='1';},20);},700);}
+━━━ STRUKTUR HALAMAN WAJIB ━━━
+BAGIAN 1 — Cover (id="cover"):
+- min-h-screen, flex center, background gradient berlapis KAYA (3+ warna)
+- Ornamen SVG dekoratif di 4 sudut (bunga, geometri, atau sesuai tema)
+- Nama dalam font script, text-5xl minimum, animate fadeInUp
+- Tanggal elegan dengan divider ornamen
+- Tombol "✉ Buka Undangan" besar, rounded-full, gradient hover, shadow glow
+
+BAGIAN 2 — Konten (id="content" style="display:none;opacity:0"):
+Berisi section-section dengan id tepat (lihat bawah).
+
+JavaScript WAJIB (inline di <body>):
+function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s ease';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s ease';i.style.opacity='1';},30);},800);}
 
 ━━━ SECTION IDs WAJIB ━━━
-Setiap section dalam id="content" HARUS punya id tepat:
-${isWedding ? `- id="section-hero"   → nama mempelai, tanggal, tagline
-- id="section-pesan"  → pesan pembuka, ayat quran/quote
-- id="section-akad"   → detail waktu & tempat akad
-- id="section-resepsi"→ detail waktu & tempat resepsi
-- id="section-rsvp"   → tombol konfirmasi/WhatsApp
-- id="section-footer" → footer dengan hashtag` : `- id="section-hero"   → nama, usia, tanggal
-- id="section-pesan"  → pesan undangan
-- id="section-detail" → waktu, tempat, dresscode
-- id="section-rsvp"   → tombol konfirmasi
-- id="section-footer" → footer`}
+${isWedding ? `<section id="section-hero">   — foto/nama besar mempelai, tanggal, quote romantis
+<section id="section-pesan">  — pesan pembuka hangat, ayat Al-Qur'an/quote cinta
+<section id="section-akad">   — detail lengkap akad (waktu, venue, alamat)
+<section id="section-resepsi">— detail lengkap resepsi (waktu, venue, alamat)
+<section id="section-rsvp">   — tombol WhatsApp konfirmasi kehadiran
+<section id="section-footer"> — hashtag, ucapan terima kasih` : `<section id="section-hero">   — nama, usia/ke berapa, tanggal
+<section id="section-pesan">  — pesan undangan hangat
+<section id="section-detail"> — waktu, tempat, dresscode
+<section id="section-rsvp">   — tombol konfirmasi
+<section id="section-footer"> — footer`}
 
-━━━ DATA-EDIT ATTRIBUTES WAJIB ━━━
-Setiap elemen teks yang dapat diedit HARUS punya data-edit attribute:
+━━━ DATA-EDIT ATTRIBUTES — SEMUA WAJIB ADA ━━━
+Setiap teks yang bisa diedit HARUS punya data-edit. Satu elemen = satu nilai saja (jangan nested).
 
-Di dalam id="cover":
-  data-edit="cover-names"   → nama di cover
-  data-edit="cover-date"    → tanggal di cover
-  data-edit="cover-button"  → teks tombol "Buka Undangan"
+Cover:
+  <h1 data-edit="cover-names">    — nama di cover
+  <p  data-edit="cover-date">     — tanggal di cover
+  <button data-edit="cover-button" onclick="openInvitation()"> — teks tombol
 
-Di dalam id="section-hero":
-  data-edit="hero-names"    → nama besar mempelai/ulang tahun
-  data-edit="hero-tagline"  → tagline (opsional)
+section-hero:
+  <h2 data-edit="hero-names">     — nama mempelai / ulang tahun
+  <p  data-edit="hero-tagline">   — tagline/quote singkat
 
-Di dalam id="section-pesan":
-  data-edit="opening-message" → paragraf pesan pembuka
-  data-edit="quote"           → quote/ayat (opsional)
+section-pesan:
+  <p  data-edit="opening-message">— paragraf pesan pembuka
+  <p  data-edit="quote">          — ayat/quote
 
-${isWedding ? `Di dalam id="section-akad":
-  data-edit="akad-time"    → waktu akad
-  data-edit="akad-venue"   → nama venue akad
-  data-edit="akad-address" → alamat akad
+${isWedding ? `section-akad:
+  <p data-edit="akad-time">       — waktu akad
+  <p data-edit="akad-venue">      — nama venue akad
+  <p data-edit="akad-address">    — alamat akad
 
-Di dalam id="section-resepsi":
-  data-edit="resepsi-time"    → waktu resepsi
-  data-edit="resepsi-venue"   → nama venue resepsi
-  data-edit="resepsi-address" → alamat resepsi` : `Di dalam id="section-detail":
-  data-edit="event-time"    → waktu acara
-  data-edit="event-venue"   → nama tempat
-  data-edit="event-address" → alamat
-  data-edit="dresscode"     → dresscode (jika ada)`}
+section-resepsi:
+  <p data-edit="resepsi-time">    — waktu resepsi
+  <p data-edit="resepsi-venue">   — nama venue resepsi
+  <p data-edit="resepsi-address"> — alamat resepsi` : `section-detail:
+  <p data-edit="event-time">      — waktu acara
+  <p data-edit="event-venue">     — nama tempat
+  <p data-edit="event-address">   — alamat
+  <p data-edit="dresscode">       — dresscode`}
 
-Di dalam id="section-footer":
-  data-edit="hashtag" → teks hashtag
+section-footer:
+  <p data-edit="hashtag">         — hashtag
 
-Contoh penerapan yang BENAR:
-<div id="cover" class="...">
-  <h1 data-edit="cover-names" class="...">Arinda & Baskara</h1>
-  <p data-edit="cover-date" class="...">Sabtu, 14 Juni 2025</p>
-  <button data-edit="cover-button" onclick="openInvitation()" class="...">✉ Buka Undangan</button>
-</div>
-<div id="content" style="display:none;opacity:0">
-  <section id="section-hero" class="...">
-    <h2 data-edit="hero-names" class="...">Arinda & Baskara</h2>
-  </section>
-  ...
-</div>
+━━━ STANDAR VISUAL TINGGI ━━━
+- Background tiap section: gradient unik, BUKAN polos putih
+- Setiap section punya ornamen SVG atau pattern dekoratif
+- Cards: bg-white/10 backdrop-blur rounded-2xl shadow-2xl border border-white/20
+- Nama mempelai: text-5xl md:text-7xl, font script, letter-spacing lebar
+- Divider antar section: ornamen SVG cantik (bunga, garis berliku, bintang)
+- Animasi scroll: class animate yang trigger saat tampil
+- Tombol RSVP: py-4 px-10 rounded-full gradient shadow-lg text-lg font-semibold
+- Color palette: gunakan tailwind.config extend.colors, konsisten seluruh halaman
+- Mobile-first: semua section responsif, padding cukup
 
-━━━ STANDAR DESAIN TINGGI ━━━
-- Cover: gradient berlapis kaya, ornamen SVG dekoratif di sudut, nama dalam font script besar, tombol elegan
-- Cards: rounded-2xl shadow-2xl, border semi-transparan
-- Typography: nama text-5xl+, hierarchy jelas
-- Animasi: @keyframes float dan fadeInUp
-- Spacing: lega, min py-16 per section
-- Tombol RSVP: besar, rounded-full atau rounded-xl, gradient
+━━━ TEMA & GAYA ━━━
+${theme.trim() || `Elegan dan mewah, ${isWedding ? 'romantis dengan sentuhan gold dan krem' : 'meriah dan modern'}`}
 
-━━━ TEMA & GAYA VISUAL ━━━
-${theme.trim() || `Elegan dan mewah untuk ${isWedding ? 'pernikahan romantis' : 'ulang tahun meriah'}`}
-
-━━━ DETAIL ACARA ━━━
+━━━ DATA ACARA (GUNAKAN PERSIS INI) ━━━
 Tipe: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
 ${details.trim()}
 
-TIDAK ADA penjelasan. HANYA HTML.`
+OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
 
   const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL ?? 'gemini/gemini-2.0-flash',
+    model: process.env.OPENAI_MODEL ?? 'gemini/gemini-1.5-pro',
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: 'Buat undangan digitalnya sekarang, sangat indah dan profesional.' },
+      { role: 'user', content: 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
     ],
-    temperature: 0.7,
-    max_tokens: 6000,
+    temperature: 0.8,
+    max_tokens: 8000,
   })
 
   const raw = completion.choices[0]?.message?.content ?? ''
