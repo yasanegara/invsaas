@@ -31,21 +31,26 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const [regenPrompt, setRegenPrompt] = useState('')
+  const [regenTheme, setRegenTheme] = useState('')
+  const [regenDetails, setRegenDetails] = useState('')
   const [regenLoading, setRegenLoading] = useState(false)
   const [currentHtml, setCurrentHtml] = useState(invitation.customHtml)
 
   const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(invitation.templateId)
 
   async function regenerateAi() {
-    if (!regenPrompt.trim()) return
+    if (!regenDetails.trim()) return
     setRegenLoading(true)
     setError('')
     try {
       const genRes = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: regenPrompt, templateId: invitation.templateId }),
+        body: JSON.stringify({
+          theme: regenTheme.trim(),
+          details: regenDetails.trim(),
+          templateId: invitation.templateId,
+        }),
       })
       if (!genRes.ok) throw new Error()
       const data = await genRes.json()
@@ -59,7 +64,8 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
 
       setCurrentHtml(data.customHtml)
       if (data.title) setTitle(data.title)
-      setRegenPrompt('')
+      setRegenTheme('')
+      setRegenDetails('')
     } catch {
       setError('Gagal regenerate, coba lagi.')
     } finally {
@@ -181,35 +187,55 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
             </div>
 
             {/* Regenerate */}
-            <div style={{ padding: '16px 20px' }}>
-              <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-                Generate ulang dengan deskripsi baru:
-              </p>
-              <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 12, color: '#888', margin: 0 }}>Generate ulang dengan prompt baru:</p>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 500, color: '#999', display: 'block', marginBottom: 4 }}>
+                  Tema visual <span style={{ fontWeight: 400 }}>(opsional)</span>
+                </label>
                 <input
-                  value={regenPrompt}
-                  onChange={e => setRegenPrompt(e.target.value)}
-                  placeholder="Ceritakan ulang detail acaramu..."
+                  value={regenTheme}
+                  onChange={e => setRegenTheme(e.target.value)}
+                  placeholder="contoh: islami paper quilling, emerald green dan gold..."
                   disabled={regenLoading}
                   style={{
-                    flex: 1, padding: '9px 13px', borderRadius: 8,
-                    border: '1.5px solid #e8e8e8', fontSize: 13,
+                    width: '100%', padding: '8px 12px', borderRadius: 7,
+                    border: '1.5px solid #e8e8e8', fontSize: 12, boxSizing: 'border-box',
                     outline: 'none', fontFamily: 'inherit', color: '#1a1a1a',
                   }}
                 />
-                <button
-                  onClick={regenerateAi}
-                  disabled={!regenPrompt.trim() || regenLoading}
-                  style={{
-                    padding: '9px 16px', borderRadius: 8, border: 'none',
-                    background: regenPrompt.trim() && !regenLoading ? '#18181b' : '#e4e4e7',
-                    color: regenPrompt.trim() && !regenLoading ? '#fff' : '#a1a1aa',
-                    fontSize: 13, fontWeight: 500, cursor: regenPrompt.trim() && !regenLoading ? 'pointer' : 'default',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {regenLoading ? 'Generating...' : '✨ Regenerate'}
-                </button>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 500, color: '#999', display: 'block', marginBottom: 4 }}>
+                  Detail acara <span style={{ color: '#e53e3e' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <input
+                    value={regenDetails}
+                    onChange={e => setRegenDetails(e.target.value)}
+                    placeholder={isWedding ? 'Nama, tanggal, venue, RSVP...' : 'Nama, tanggal, tempat...'}
+                    disabled={regenLoading}
+                    style={{
+                      flex: 1, padding: '8px 12px', borderRadius: 7,
+                      border: '1.5px solid #e8e8e8', fontSize: 12,
+                      outline: 'none', fontFamily: 'inherit', color: '#1a1a1a',
+                    }}
+                  />
+                  <button
+                    onClick={regenerateAi}
+                    disabled={!regenDetails.trim() || regenLoading}
+                    style={{
+                      padding: '8px 14px', borderRadius: 7, border: 'none',
+                      background: regenDetails.trim() && !regenLoading ? '#18181b' : '#e4e4e7',
+                      color: regenDetails.trim() && !regenLoading ? '#fff' : '#a1a1aa',
+                      fontSize: 12, fontWeight: 500,
+                      cursor: regenDetails.trim() && !regenLoading ? 'pointer' : 'default',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {regenLoading ? 'Generating...' : '✨ Regenerate'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

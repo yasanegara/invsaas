@@ -13,11 +13,14 @@ export default function NewInvitationClient() {
   const [step, setStep] = useState<Step>('template')
   const [templateId, setTemplateId] = useState<TemplateId | null>(null)
   const [title, setTitle] = useState('')
-  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiTheme, setAiTheme] = useState('')
+  const [aiDetails, setAiDetails] = useState('')
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+
+  const isWedding = templateId ? TEMPLATE_META[templateId].category === 'Pernikahan' : true
 
   function handleTemplateSelect(id: TemplateId) {
     setTemplateId(id)
@@ -31,19 +34,23 @@ export default function NewInvitationClient() {
   }
 
   async function handleAiGenerate() {
-    if (!aiPrompt.trim() || !templateId) return
+    if (!aiDetails.trim() || !templateId) return
     setAiLoading(true)
     setError('')
     try {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: aiPrompt, templateId }),
+        body: JSON.stringify({
+          theme: aiTheme.trim(),
+          details: aiDetails.trim(),
+          templateId,
+        }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
       await createInvitation({
-        title: data.title || title.trim() || aiPrompt.slice(0, 60),
+        title: data.title || title.trim() || aiDetails.slice(0, 60),
         customHtml: data.customHtml,
       })
     } catch {
@@ -79,6 +86,7 @@ export default function NewInvitationClient() {
   }
 
   const busy = loading || aiLoading
+  const canGenerate = aiDetails.trim().length > 0 && !busy
 
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
@@ -123,12 +131,7 @@ export default function NewInvitationClient() {
                 borderBottom: '1px solid #f0f0f0',
                 background: '#fafafa',
               }}>
-                <div style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  background: TEMPLATE_META[templateId].accent,
-                }} />
+                <div style={{ width: 28, height: 28, borderRadius: 6, background: TEMPLATE_META[templateId].accent }} />
                 <div style={{ flex: 1 }}>
                   <span style={{ fontSize: 13, fontWeight: 500 }}>{TEMPLATE_META[templateId].label}</span>
                   <span style={{ fontSize: 12, color: '#aaa', marginLeft: 8 }}>{TEMPLATE_META[templateId].category}</span>
@@ -144,66 +147,78 @@ export default function NewInvitationClient() {
 
             {/* AI section */}
             <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid #f0f0f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{ fontSize: 16 }}>✨</span>
-                <span style={{ fontSize: 14, fontWeight: 600 }}>Isi otomatis dengan AI</span>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>Generate halaman undangan dengan AI</span>
                 <span style={{
-                  fontSize: 11,
-                  padding: '2px 7px',
-                  borderRadius: 10,
-                  background: '#f0fdf4',
-                  color: '#166534',
-                  fontWeight: 500,
+                  fontSize: 11, padding: '2px 7px', borderRadius: 10,
+                  background: '#f0fdf4', color: '#166534', fontWeight: 500,
                 }}>Groq</span>
               </div>
-              <p style={{ fontSize: 13, color: '#888', margin: '0 0 14px' }}>
-                Ceritakan detail acaramu, AI akan mengisi semua field secara otomatis
+              <p style={{ fontSize: 12, color: '#999', margin: '0 0 16px' }}>
+                AI akan membuat satu halaman undangan digital yang unik — bukan sekedar isi template.
               </p>
-              <textarea
-                value={aiPrompt}
-                onChange={e => setAiPrompt(e.target.value)}
-                placeholder={
-                  TEMPLATE_META[templateId!]?.category === 'Pernikahan'
-                    ? 'contoh: Pernikahan Arinda Putri dan Baskara Wijaya, Sabtu 14 Juni 2025, akad jam 8 pagi resepsi jam 11 siang, di The Sultan Hotel Yogyakarta, RSVP ke 08123456789'
-                    : 'contoh: Ulang tahun Galuh yang ke-25, Sabtu 14 Juni 2025 jam 7 malam, di Rooftop Kemang Jakarta Selatan, dresscode ungu'
-                }
-                rows={3}
-                disabled={busy}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  border: '1.5px solid #e8e8e8',
-                  fontSize: 13,
-                  boxSizing: 'border-box',
-                  outline: 'none',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  color: '#1a1a1a',
-                  marginBottom: 12,
-                }}
-              />
+
+              {/* Field 1: Tema visual */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
+                  Tema & gaya visual
+                  <span style={{ fontWeight: 400, color: '#aaa', marginLeft: 4 }}>(opsional)</span>
+                </label>
+                <textarea
+                  value={aiTheme}
+                  onChange={e => setAiTheme(e.target.value)}
+                  placeholder="contoh: Tema islami dengan motif bunga liar watercolor, warna sage green dan dusty rose, nuansa hangat dan natural..."
+                  rows={2}
+                  disabled={busy}
+                  style={textareaStyle}
+                />
+              </div>
+
+              {/* Field 2: Detail acara */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
+                  Detail acara
+                  <span style={{ fontWeight: 400, color: '#e53e3e', marginLeft: 4 }}>*</span>
+                </label>
+                <textarea
+                  value={aiDetails}
+                  onChange={e => setAiDetails(e.target.value)}
+                  placeholder={
+                    isWedding
+                      ? 'contoh: Pernikahan Arinda Putri dan Baskara Wijaya, Sabtu 14 Juni 2025, akad jam 08.00 resepsi jam 11.00–14.00, di The Sultan Hotel Yogyakarta, RSVP ke 08123456789'
+                      : 'contoh: Ulang tahun Galuh ke-25, Sabtu 14 Juni 2025 jam 19.00, di Rooftop Kemang Jakarta Selatan, dresscode ungu'
+                  }
+                  rows={3}
+                  disabled={busy}
+                  style={textareaStyle}
+                />
+                <p style={{ fontSize: 11, color: '#bbb', margin: '4px 0 0' }}>
+                  Sertakan: nama, tanggal, waktu, tempat{isWedding ? ', nomor RSVP' : ''}
+                </p>
+              </div>
+
               <button
                 onClick={handleAiGenerate}
-                disabled={!aiPrompt.trim() || busy}
+                disabled={!canGenerate}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
-                  background: aiPrompt.trim() && !busy ? '#18181b' : '#e4e4e7',
-                  color: aiPrompt.trim() && !busy ? '#fff' : '#a1a1aa',
+                  background: canGenerate ? '#18181b' : '#e4e4e7',
+                  color: canGenerate ? '#fff' : '#a1a1aa',
                   padding: '10px 20px',
                   borderRadius: 8,
                   border: 'none',
                   fontSize: 14,
                   fontWeight: 500,
-                  cursor: aiPrompt.trim() && !busy ? 'pointer' : 'default',
+                  cursor: canGenerate ? 'pointer' : 'default',
                   transition: 'all .15s',
                 }}
               >
                 {aiLoading
-                  ? <><Spinner /> Generating...</>
-                  : <><span>✨</span> Generate dengan AI</>
+                  ? <><Spinner /> Membuat halaman...</>
+                  : <><span>✨</span> Generate Undangan</>
                 }
               </button>
             </div>
@@ -211,40 +226,29 @@ export default function NewInvitationClient() {
             {/* Manual section */}
             <div style={{ padding: '20px 24px 24px' }}>
               <p style={{ fontSize: 13, color: '#888', margin: '0 0 14px' }}>
-                Atau isi manual — masukkan judul undangan dulu, edit detail nanti
+                Atau isi manual — masukkan judul dulu, edit detail nanti
               </p>
               <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <input
                   type="text"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder="Judul undangan, contoh: Pernikahan Arinda & Baskara"
+                  placeholder={isWedding ? 'Judul: Pernikahan Arinda & Baskara' : 'Judul: Ulang Tahun Galuh ke-25'}
                   disabled={busy}
                   style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: 8,
-                    border: '1.5px solid #e8e8e8',
-                    fontSize: 13,
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                    color: '#1a1a1a',
+                    flex: 1, padding: '10px 14px', borderRadius: 8,
+                    border: '1.5px solid #e8e8e8', fontSize: 13,
+                    outline: 'none', fontFamily: 'inherit', color: '#1a1a1a',
                   }}
                 />
                 <button
                   type="submit"
                   disabled={!title.trim() || busy}
                   style={{
-                    background: '#fff',
-                    color: '#1a1a1a',
-                    padding: '10px 18px',
-                    borderRadius: 8,
-                    border: '1.5px solid #d4d4d8',
-                    fontSize: 13,
-                    fontWeight: 500,
-                    cursor: title.trim() && !busy ? 'pointer' : 'default',
-                    opacity: !title.trim() ? 0.4 : 1,
-                    whiteSpace: 'nowrap',
+                    background: '#fff', color: '#1a1a1a', padding: '10px 18px',
+                    borderRadius: 8, border: '1.5px solid #d4d4d8', fontSize: 13,
+                    fontWeight: 500, cursor: title.trim() && !busy ? 'pointer' : 'default',
+                    opacity: !title.trim() ? 0.4 : 1, whiteSpace: 'nowrap',
                   }}
                 >
                   {loading ? 'Membuat...' : 'Isi Manual →'}
@@ -264,6 +268,20 @@ export default function NewInvitationClient() {
   )
 }
 
+const textareaStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 14px',
+  borderRadius: 8,
+  border: '1.5px solid #e8e8e8',
+  fontSize: 13,
+  boxSizing: 'border-box',
+  outline: 'none',
+  fontFamily: 'inherit',
+  resize: 'vertical',
+  color: '#1a1a1a',
+  lineHeight: 1.6,
+}
+
 function Spinner() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 0.8s linear infinite' }}>
@@ -274,25 +292,16 @@ function Spinner() {
 }
 
 function StepDot({ active, done, number, label }: {
-  active: boolean
-  done: boolean
-  number: number
-  label: string
+  active: boolean; done: boolean; number: number; label: string
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{
-        width: 26,
-        height: 26,
-        borderRadius: '50%',
+        width: 26, height: 26, borderRadius: '50%',
         background: done ? '#1a1a1a' : active ? '#1a1a1a' : '#e0e0e0',
         color: done || active ? '#fff' : '#999',
-        fontSize: 12,
-        fontWeight: 600,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
+        fontSize: 12, fontWeight: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}>
         {done ? '✓' : number}
       </div>

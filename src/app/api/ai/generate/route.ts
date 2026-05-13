@@ -2,78 +2,16 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import Groq from 'groq-sdk'
 
-type TemplateStyle = { name: string; styleGuide: string }
-
-function getTemplateStyle(templateId: string): TemplateStyle {
-  switch (templateId) {
-    case 'elegant-gold':
-      return {
-        name: 'Elegant Gold',
-        styleGuide: `
-- Background halaman: #fdf8f0 (krem muda)
-- Hero section: background #3a2e1a (coklat gelap), teks putih, aksen emas #b8963e
-- Font: Georgia, serif untuk semua teks
-- Ornamen: garis gradien emas, simbol ✦ ✦ ✦ sebagai pemisah
-- Kartu info: background #fdf8f0, border emas tipis
-- Tombol RSVP: background #3a2e1a, teks emas
-- Sertakan "Bismillahirrahmanirrahim" sebelum pesan pembuka
-- Suasana: mewah, formal, elegan, bernuansa islami`,
-      }
-    case 'modern-clean':
-      return {
-        name: 'Modern Clean',
-        styleGuide: `
-- Background halaman: #f7f7f5 (abu sangat muda)
-- Hero section: background #1a1a1a (hitam), teks putih, badge putih kecil
-- Font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
-- Detail dalam tabel/card bersih: background putih, border #eee
-- Tombol RSVP: background #1a1a1a, teks putih, rounded 4px
-- Banyak white space, tipografi kuat
-- Suasana: minimalis, modern, kontemporer`,
-      }
-    case 'romantic-pink':
-      return {
-        name: 'Romantic Pink',
-        styleGuide: `
-- Background halaman: #fff5f8 (pink sangat pucat)
-- Hero section: background #c05a8a (pink), teks putih
-- Font: Georgia, serif
-- Grid 2 kolom untuk info detail
-- Simbol hati ♥ di beberapa tempat
-- Tombol RSVP: background #c05a8a, rounded 24px (pill shape), teks putih
-- Quote dalam card dengan border kiri pink
-- Suasana: romantis, feminin, hangat, penuh cinta`,
-      }
-    case 'birthday':
-      return {
-        name: 'Birthday Bash',
-        styleGuide: `
-- Background halaman: #f0edff (ungu sangat pucat)
-- Hero section: background #5b4fcf (ungu), badge pill putih di atas nama
-- Font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
-- Emoji pesta: 🎉 🎂 🎈 🎁 🥳 sebagai row dekoratif
-- Info dalam chip cards: background putih, border ungu
-- Tombol RSVP: background #5b4fcf, rounded 12px, teks putih
-- Suasana: meriah, fun, festive, penuh semangat`,
-      }
-    default:
-      return {
-        name: 'Elegant Gold',
-        styleGuide: '- Elegan dengan aksen emas, nuansa mewah dan formal',
-      }
-  }
-}
-
-function extractTitle(html: string, prompt: string, isWedding: boolean): string {
+function extractTitle(html: string, details: string, isWedding: boolean): string {
   const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)
   if (titleTag?.[1]?.trim()) return titleTag[1].trim()
 
-  const weddingMatch = prompt.match(
+  const weddingMatch = details.match(
     /(?:pernikahan|nikah|wedding)\s+([A-Za-zÀ-ſ]+)\s+(?:dan|&|and)\s+([A-Za-zÀ-ſ]+)/i
   )
   if (weddingMatch) return `Pernikahan ${weddingMatch[1]} & ${weddingMatch[2]}`
 
-  const bdayMatch = prompt.match(/(?:ulang tahun|birthday|ultah)\s+([A-Za-zÀ-ſ]+)/i)
+  const bdayMatch = details.match(/(?:ulang tahun|birthday|ultah)\s+([A-Za-zÀ-ſ]+)/i)
   if (bdayMatch) return `Ulang Tahun ${bdayMatch[1]}`
 
   return isWedding ? 'Undangan Pernikahan' : 'Undangan Ulang Tahun'
@@ -86,52 +24,76 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { prompt, templateId } = await request.json()
-  if (!prompt?.trim()) {
-    return NextResponse.json({ error: 'Prompt required' }, { status: 400 })
+  const body = await request.json()
+
+  // Support both old format (prompt) and new format (theme + details)
+  const theme: string = body.theme ?? ''
+  const details: string = body.details ?? body.prompt ?? ''
+  const templateId: string = body.templateId ?? 'elegant-gold'
+
+  if (!details.trim()) {
+    return NextResponse.json({ error: 'Detail acara wajib diisi' }, { status: 400 })
   }
 
   const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(templateId)
-  const style = getTemplateStyle(templateId)
 
-  const systemPrompt = `Kamu adalah web designer Indonesia yang ahli membuat undangan digital.
-Buat satu halaman HTML undangan yang LENGKAP, CANTIK, dan UNIK berdasarkan deskripsi user.
+  const themeSection = theme.trim()
+    ? `=== TEMA & GAYA VISUAL (PRIORITAS UTAMA — ikuti sepenuhnya) ===
+${theme.trim()}
+
+`
+    : ''
+
+  const systemPrompt = `Kamu adalah web designer Indonesia ahli undangan digital. Buat satu halaman HTML undangan yang LENGKAP, CANTIK, dan UNIK.
 
 === ATURAN WAJIB ===
-- Kembalikan HANYA kode HTML dari <!DOCTYPE html> sampai </html>
-- Semua CSS HANYA dalam <style> tag di dalam <head>
-- TIDAK ADA external CSS, Google Fonts, Bootstrap, atau CDN apapun
-- TIDAK ADA JavaScript
-- Mobile-first: max-width 480px, margin 0 auto, padding 0
-- Sertakan SEMUA informasi dari deskripsi user
-- Buat <title> yang sesuai dengan nama/acara
+- Output: HANYA kode HTML dari <!DOCTYPE html> hingga </html>, TIDAK ADA teks lain
+- CSS: semua dalam <style> di <head>, TIDAK ADA external CSS/fonts/CDN
+- JavaScript: TIDAK ADA
+- Layout: mobile-first, max-width 480px, margin 0 auto, min-height 100vh
+- Konten: masukkan SEMUA detail acara dari input user
+- Jika ada nomor WhatsApp: buat tombol RSVP dengan href="https://wa.me/[nomor]"
 
-=== GAYA VISUAL (template: ${style.name}) ===${style.styleGuide}
+${themeSection}=== DETAIL ACARA YANG HARUS DITAMPILKAN ===
+Tipe: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
+${details.trim()}
 
-=== STRUKTUR HALAMAN (dari atas ke bawah) ===
-${isWedding ? `1. Hero: background gelap/berwarna, nama kedua mempelai besar (dengan & di tengah), tanggal acara
-2. Pesan pembuka: 2-3 kalimat hangat dan formal
-3. Detail akad: ikon kalender, tanggal + waktu akad
-4. Detail resepsi: ikon lokasi, waktu resepsi, nama venue, alamat
-5. Quote cinta (jika ada dalam deskripsi)
-6. Tombol RSVP konfirmasi kehadiran (jika ada nomor WA: href="https://wa.me/[nomor]")
-7. Footer: hashtag (jika ada)` : `1. Hero: background berwarna, badge "BIRTHDAY PARTY", nama besar, tagline
-2. Row emoji pesta: 🎉 🎂 🎈 🎁 🥳
-3. Pesan undangan: 2-3 kalimat ceria
-4. Info acara dalam chips: tanggal + waktu, tempat + alamat, dresscode (jika ada)
-5. Tombol RSVP (jika ada nomor WA: href="https://wa.me/[nomor]")
+=== PANDUAN DESAIN ===
+${theme.trim() ? `Wujudkan tema visual yang diminta user dengan CSS yang kreatif. Gunakan:
+- Gradien, pola, dan dekorasi CSS murni untuk efek visual
+- Box-shadow bertingkat untuk kesan kedalaman/3D
+- Border-radius dan clip-path untuk bentuk dekoratif
+- Pseudo-element ::before/::after untuk ornamen
+- CSS pattern untuk tekstur (repeating-linear-gradient, radial-gradient)
+- Animasi CSS @keyframes yang halus (opsional, maks 1-2 animasi)` : `Buat desain elegan yang sesuai tipe acara (${isWedding ? 'pernikahan' : 'ulang tahun'}):
+- Pilih palet warna yang harmonis dan mewah
+- Tipografi yang terbaca dengan baik di mobile
+- Hierarki visual yang jelas: hero → pesan → detail → RSVP`}
+
+=== STRUKTUR HALAMAN ===
+${isWedding ? `1. Hero: nama kedua mempelai (besar, menonjol), tanggal, tagline romantis
+2. Pesan pembuka 2-3 kalimat (formal, hangat, sertakan Bismillah jika temanya islami)
+3. Detail akad: ikon/dekorasi, waktu akad
+4. Detail resepsi: waktu resepsi, nama venue, alamat
+5. Quote cinta (jika ada dalam detail)
+6. Tombol RSVP besar dan menonjol
+7. Footer: hashtag (jika ada)` : `1. Hero: nama, tagline ulang tahun, tanggal
+2. Row dekorasi pesta
+3. Pesan undangan 2-3 kalimat (ceria, hangat)
+4. Detail: tanggal+waktu, tempat+alamat, dresscode (jika ada)
+5. Tombol RSVP besar
 6. Footer: hashtag (jika ada)`}
 
-TIDAK ADA penjelasan. HANYA HTML valid.`
+TIDAK ADA penjelasan. HANYA HTML.`
 
   const completion = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: prompt.trim() },
+      { role: 'user', content: `Buat undangan digitalnya sekarang.` },
     ],
-    temperature: 0.7,
-    max_tokens: 4000,
+    temperature: 0.75,
+    max_tokens: 4096,
   })
 
   const raw = completion.choices[0]?.message?.content ?? ''
@@ -143,7 +105,8 @@ TIDAK ADA penjelasan. HANYA HTML valid.`
     return NextResponse.json({ error: 'AI gagal generate, coba lagi.' }, { status: 500 })
   }
 
-  const title = extractTitle(customHtml, prompt, isWedding)
-
-  return NextResponse.json({ title, customHtml })
+  return NextResponse.json({
+    title: extractTitle(customHtml, details, isWedding),
+    customHtml,
+  })
 }
