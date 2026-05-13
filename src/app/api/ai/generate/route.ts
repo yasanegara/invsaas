@@ -191,26 +191,49 @@ function openInvitation(){var c=document.getElementById('cover');c.style.transit
 ━━━ SECTION IDs WAJIB ━━━
 ${SECTION_IDS[eventType]}
 
-━━━ DATA-EDIT ATTRIBUTES — SEMUA WAJIB ADA ━━━
-Setiap teks yang bisa diedit HARUS punya data-edit. Satu elemen = satu nilai saja (jangan nested).
+━━━ DATA-EDIT ATTRIBUTES — WAJIB KRITIS ━━━
+⚠️ SETIAP teks konten yang ditampilkan ke tamu WAJIB punya atribut data-edit.
+Jangan lewatkan satu pun. Sistem editor kami membaca atribut ini — jika tidak ada, undangan tidak bisa diedit.
 
-Cover:
+CONTOH BENAR (wajib seperti ini):
+<div id="section-hero" style="...">
+  <h2 data-edit="hero-names" class="text-5xl font-script text-white">Ahmad & Siti</h2>
+  <p data-edit="hero-tagline" class="text-lg text-amber-200">We're Getting Married</p>
+</div>
+
+CONTOH SALAH (JANGAN begini — tidak ada data-edit):
+<div id="section-hero" style="...">
+  <h2 class="text-5xl font-script text-white">Ahmad & Siti</h2>
+  <p class="text-lg text-amber-200">We're Getting Married</p>
+</div>
+
+Daftar data-edit yang WAJIB ada persis:
+
+Cover (id="cover"):
   <h1 data-edit="cover-names">    — nama di cover
   <p  data-edit="cover-date">     — tanggal di cover
   <button data-edit="cover-button" onclick="openInvitation()"> — teks tombol
 
 section-hero:
-  <h2 data-edit="hero-names">     — nama utama
-  <p  data-edit="hero-tagline">   — tagline/quote singkat
+  <h2 data-edit="hero-names">     — nama utama (SATU elemen, tidak nested)
+  <p  data-edit="hero-tagline">   — tagline/quote singkat (SATU elemen)
 
 section-pesan:
-  <p  data-edit="opening-message">— paragraf pesan pembuka
-  <p  data-edit="quote">          — ayat/quote
+  <p  data-edit="opening-message">— paragraf pesan pembuka (SATU elemen)
+  <p  data-edit="quote">          — ayat/quote (SATU elemen)
 
 ${DATA_EDIT_EXTRA[eventType]}
 
+section-rsvp:
+  <p data-edit="rsvp-button">     — teks tombol RSVP
+
 section-footer:
-  <p data-edit="hashtag">         — hashtag
+  <p data-edit="hashtag">         — hashtag / nama footer
+
+ATURAN data-edit:
+- Satu data-edit per elemen — tidak boleh ada data-edit di dalam elemen yang sudah ber-data-edit
+- Nilai data-edit harus PERSIS seperti daftar di atas (lowercase, kebab-case)
+- Isi elemen = teks saja, bukan HTML nested
 
 ━━━ KAMUS DESAIN ━━━
 Jika parameter gaya visual disebutkan, terapkan teknik CSS ini:

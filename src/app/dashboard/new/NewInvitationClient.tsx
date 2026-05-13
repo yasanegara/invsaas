@@ -101,6 +101,7 @@ function extractSections(html: string): { sections: InvSection[]; values: Record
   const sections: InvSection[] = []
   const values: Record<string, string> = {}
   const seenLabels = new Set<string>()
+  const seenKeys = new Set<string>()
 
   for (const def of SECTION_DEFS) {
     const el = doc.getElementById(def.id)
@@ -110,7 +111,8 @@ function extractSections(html: string): { sections: InvSection[]; values: Record
     const fields: InvField[] = []
     el.querySelectorAll('[data-edit]').forEach(editEl => {
       const key = editEl.getAttribute('data-edit')!
-      if (!key || fields.some(f => f.key === key)) return
+      if (!key || seenKeys.has(key)) return
+      seenKeys.add(key)
       const meta = FIELD_LABELS[key] ?? { label: key }
       fields.push({ key, label: meta.label, multiline: meta.multiline })
       values[key] = editEl.textContent?.trim() ?? ''
@@ -118,6 +120,47 @@ function extractSections(html: string): { sections: InvSection[]; values: Record
 
     if (fields.length > 0) sections.push({ ...def, fields })
   }
+
+  // Fallback: AI tidak selalu mengikuti section ID — scan seluruh dokumen
+  if (sections.length === 0) {
+    const allEditEls = doc.querySelectorAll('[data-edit]')
+    if (allEditEls.length > 0) {
+      // Kelompokkan per ancestor section/div ber-ID
+      const groupMap = new Map<string, { def: { id: string; label: string; icon: string }; fields: InvField[] }>()
+      allEditEls.forEach(editEl => {
+        const key = editEl.getAttribute('data-edit')!
+        if (!key || seenKeys.has(key)) return
+        seenKeys.add(key)
+
+        // Cari ancestor dengan ID
+        let ancestor: Element | null = editEl.parentElement
+        let groupId = 'misc'
+        let groupLabel = 'Konten'
+        let groupIcon = '📝'
+        while (ancestor && ancestor !== doc.body) {
+          if (ancestor.id) {
+            groupId = ancestor.id
+            const sectionDef = SECTION_DEFS.find(d => d.id === ancestor!.id)
+            if (sectionDef) { groupLabel = sectionDef.label; groupIcon = sectionDef.icon }
+            break
+          }
+          ancestor = ancestor.parentElement
+        }
+
+        if (!groupMap.has(groupId)) {
+          groupMap.set(groupId, { def: { id: groupId, label: groupLabel, icon: groupIcon }, fields: [] })
+        }
+        const meta = FIELD_LABELS[key] ?? { label: key }
+        groupMap.get(groupId)!.fields.push({ key, label: meta.label, multiline: meta.multiline })
+        values[key] = editEl.textContent?.trim() ?? ''
+      })
+
+      for (const { def, fields } of groupMap.values()) {
+        if (fields.length > 0) sections.push({ ...def, fields })
+      }
+    }
+  }
+
   return { sections, values }
 }
 
