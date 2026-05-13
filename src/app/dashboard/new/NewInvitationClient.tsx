@@ -7,20 +7,106 @@ import TemplatePicker from '@/components/TemplatePicker'
 import type { TemplateId } from '@/templates/types'
 import { TEMPLATE_META } from '@/templates/types'
 
-type Step = 'template' | 'details'
+type Step = 'template' | 'details' | 'preview'
+
+interface InvField { key: string; label: string; multiline?: boolean }
+interface InvSection { id: string; label: string; icon: string; fields: InvField[] }
+
+const FIELD_LABELS: Record<string, { label: string; multiline?: boolean }> = {
+  'cover-names':      { label: 'Nama di cover' },
+  'cover-date':       { label: 'Tanggal di cover' },
+  'cover-button':     { label: 'Teks tombol buka' },
+  'hero-names':       { label: 'Nama mempelai / ulang tahun' },
+  'hero-tagline':     { label: 'Tagline' },
+  'opening-message':  { label: 'Pesan pembuka', multiline: true },
+  'quote':            { label: 'Quote / Ayat', multiline: true },
+  'akad-time':        { label: 'Waktu akad' },
+  'akad-venue':       { label: 'Venue akad' },
+  'akad-address':     { label: 'Alamat akad', multiline: true },
+  'resepsi-time':     { label: 'Waktu resepsi' },
+  'resepsi-venue':    { label: 'Venue resepsi' },
+  'resepsi-address':  { label: 'Alamat resepsi', multiline: true },
+  'event-time':       { label: 'Waktu acara' },
+  'event-venue':      { label: 'Nama tempat' },
+  'event-address':    { label: 'Alamat', multiline: true },
+  'dresscode':        { label: 'Dresscode' },
+  'rsvp-button':      { label: 'Teks tombol RSVP' },
+  'hashtag':          { label: 'Hashtag' },
+  'footer-names':     { label: 'Nama di footer' },
+}
+
+const SECTION_DEFS = [
+  { id: 'cover',            label: 'Cover / Pembuka', icon: '🎴' },
+  { id: 'section-cover',    label: 'Cover / Pembuka', icon: '🎴' },
+  { id: 'section-hero',     label: 'Hero & Nama',     icon: '💍' },
+  { id: 'section-pesan',    label: 'Pesan',           icon: '💌' },
+  { id: 'section-akad',     label: 'Detail Akad',     icon: '🕌' },
+  { id: 'section-resepsi',  label: 'Detail Resepsi',  icon: '🎊' },
+  { id: 'section-detail',   label: 'Detail Acara',    icon: '📅' },
+  { id: 'section-rsvp',     label: 'RSVP',            icon: '📱' },
+  { id: 'section-footer',   label: 'Footer',          icon: '🏷️' },
+]
+
+function extractSections(html: string): { sections: InvSection[]; values: Record<string, string> } {
+  if (typeof window === 'undefined') return { sections: [], values: {} }
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const sections: InvSection[] = []
+  const values: Record<string, string> = {}
+  const seenLabels = new Set<string>()
+
+  for (const def of SECTION_DEFS) {
+    const el = doc.getElementById(def.id)
+    if (!el || seenLabels.has(def.label)) continue
+    seenLabels.add(def.label)
+
+    const fields: InvField[] = []
+    el.querySelectorAll('[data-edit]').forEach(editEl => {
+      const key = editEl.getAttribute('data-edit')!
+      if (!key || fields.some(f => f.key === key)) return
+      const meta = FIELD_LABELS[key] ?? { label: key }
+      fields.push({ key, label: meta.label, multiline: meta.multiline })
+      values[key] = editEl.textContent?.trim() ?? ''
+    })
+
+    if (fields.length > 0) sections.push({ ...def, fields })
+  }
+  return { sections, values }
+}
+
+function applyEdit(html: string, key: string, value: string): string {
+  if (typeof window === 'undefined') return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll(`[data-edit="${key}"]`).forEach(el => { el.textContent = value })
+  return '<!DOCTYPE html>' + doc.documentElement.outerHTML
+}
+
+function makePreviewSrc(html: string): string {
+  // Inject CSS to show content directly (skip cover animation for preview)
+  const style = `<style>#cover{display:none!important}#content{display:block!important;opacity:1!important}</style>`
+  return html.includes('<head>') ? html.replace('<head>', '<head>' + style) : style + html
+}
 
 export default function NewInvitationClient() {
   const [step, setStep] = useState<Step>('template')
   const [templateId, setTemplateId] = useState<TemplateId | null>(null)
-  const [title, setTitle] = useState('')
   const [aiTheme, setAiTheme] = useState('')
   const [aiDetails, setAiDetails] = useState('')
+  const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [error, setError] = useState('')
-  const router = useRouter()
 
+  // Preview/edit step
+  const [generatedHtml, setGeneratedHtml] = useState<string | null>(null)
+  const [sections, setSections] = useState<InvSection[]>([])
+  const [editValues, setEditValues] = useState<Record<string, string>>({})
+  const [activeSection, setActiveSection] = useState<string | null>(null)
+  const [generatedTitle, setGeneratedTitle] = useState('')
+
+  const router = useRouter()
   const isWedding = templateId ? TEMPLATE_META[templateId].category === 'Pernikahan' : true
+  const busy = loading || aiLoading
+  const canGenerate = aiDetails.trim().length > 0 && !busy
 
   function handleTemplateSelect(id: TemplateId) {
     setTemplateId(id)
@@ -41,31 +127,33 @@ export default function NewInvitationClient() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          theme: aiTheme.trim(),
-          details: aiDetails.trim(),
-          templateId,
-        }),
+        body: JSON.stringify({ theme: aiTheme.trim(), details: aiDetails.trim(), templateId }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
-      await createInvitation({
-        title: data.title || title.trim() || aiDetails.slice(0, 60),
-        customHtml: data.customHtml,
-      })
+      if (!data.customHtml) throw new Error()
+
+      const { sections: detected, values } = extractSections(data.customHtml)
+      setGeneratedHtml(data.customHtml)
+      setSections(detected)
+      setEditValues(values)
+      setActiveSection(detected[0]?.id ?? null)
+      setGeneratedTitle(data.title || aiDetails.slice(0, 60))
+      setStep('preview')
     } catch {
       setError('AI gagal generate, coba lagi.')
+    } finally {
       setAiLoading(false)
     }
   }
 
+  function updateField(key: string, value: string) {
+    setEditValues(prev => ({ ...prev, [key]: value }))
+    setGeneratedHtml(prev => prev ? applyEdit(prev, key, value) : prev)
+  }
+
   async function createInvitation(payload: {
-    title: string
-    header?: object
-    eventInfo?: object
-    mainText?: object
-    rsvp?: object
-    customHtml?: string
+    title: string; header?: object; eventInfo?: object; mainText?: object; rsvp?: object; customHtml?: string
   }) {
     setLoading(true)
     setError('')
@@ -76,28 +164,176 @@ export default function NewInvitationClient() {
         body: JSON.stringify({ ...payload, templateId }),
       })
       if (!res.ok) throw new Error()
-      const data = await res.json()
-      router.push(`/dashboard/edit/${data.id}`)
+      const inv = await res.json()
+      router.push(`/dashboard/edit/${inv.id}`)
     } catch {
       setError('Terjadi kesalahan, coba lagi.')
       setLoading(false)
-      setAiLoading(false)
     }
   }
 
-  const busy = loading || aiLoading
-  const canGenerate = aiDetails.trim().length > 0 && !busy
+  // ── STEP 3: Preview + Edit ───────────────────────────────────────────────
+  if (step === 'preview' && generatedHtml) {
+    const activeSec = sections.find(s => s.id === activeSection)
+    const previewSrc = makePreviewSrc(generatedHtml)
 
+    return (
+      <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
+        {/* Sticky navbar */}
+        <div style={{
+          background: '#fff', borderBottom: '1px solid #eee', padding: '0 20px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          height: 56, position: 'sticky', top: 0, zIndex: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => setStep('details')}
+              style={{ fontSize: 13, color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              ← Generate ulang
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{generatedTitle}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {error && <span style={{ fontSize: 12, color: '#e53e3e' }}>{error}</span>}
+            <button
+              onClick={() => createInvitation({ title: generatedTitle, customHtml: generatedHtml! })}
+              disabled={loading}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: 'none',
+                background: '#1a6b3a', color: '#fff', fontSize: 13, fontWeight: 500,
+                cursor: loading ? 'default' : 'pointer',
+              }}
+            >
+              {loading ? 'Menyimpan...' : 'Simpan & Lanjut →'}
+            </button>
+          </div>
+        </div>
+
+        {/* Body: preview kiri + editor kanan */}
+        <div style={{ display: 'flex', minHeight: 'calc(100vh - 56px)' }}>
+
+          {/* Phone preview */}
+          <div style={{
+            width: 380, flexShrink: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '28px 20px',
+            background: '#e8e8e6', borderRight: '1px solid #ddd',
+            position: 'sticky', top: 56, height: 'calc(100vh - 56px)', overflowY: 'auto',
+          }}>
+            <p style={{ fontSize: 11, color: '#999', marginBottom: 14, letterSpacing: 1, textTransform: 'uppercase' }}>
+              Preview
+            </p>
+            <div style={{
+              width: 300, height: 560,
+              border: '10px solid #111', borderRadius: 34,
+              overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              background: '#fff', flexShrink: 0,
+            }}>
+              {/* Notch */}
+              <div style={{ height: 22, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 50, height: 5, borderRadius: 3, background: '#333' }} />
+              </div>
+              <iframe
+                srcDoc={previewSrc}
+                style={{ width: '100%', height: 'calc(100% - 22px)', border: 'none', display: 'block' }}
+                sandbox="allow-scripts allow-popups allow-forms"
+              />
+            </div>
+          </div>
+
+          {/* Section editor */}
+          <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+
+            {sections.length === 0 ? (
+              <div style={{
+                background: '#fff', borderRadius: 12, border: '1px solid #eee',
+                padding: 32, textAlign: 'center',
+              }}>
+                <p style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>
+                  Tidak ada section yang terdeteksi untuk diedit.
+                </p>
+                <p style={{ fontSize: 12, color: '#bbb' }}>
+                  Hasil tetap tersimpan dan bisa dilihat di preview. Generate ulang jika ingin mengedit per section.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Section tabs */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+                  {sections.map(sec => (
+                    <button
+                      key={sec.id}
+                      onClick={() => setActiveSection(sec.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '8px 14px', borderRadius: 20,
+                        border: activeSection === sec.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                        background: activeSection === sec.id ? '#1a1a1a' : '#fff',
+                        color: activeSection === sec.id ? '#fff' : '#555',
+                        fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                        transition: 'all .15s',
+                      }}
+                    >
+                      <span>{sec.icon}</span>
+                      <span>{sec.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Active section fields */}
+                {activeSec && (
+                  <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
+                    <div style={{
+                      padding: '14px 20px', borderBottom: '1px solid #f0f0f0',
+                      background: '#fafafa', display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <span style={{ fontSize: 18 }}>{activeSec.icon}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{activeSec.label}</span>
+                      <span style={{ fontSize: 11, color: '#aaa', marginLeft: 4 }}>
+                        {activeSec.fields.length} field
+                      </span>
+                    </div>
+                    <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      {activeSec.fields.map(field => (
+                        <div key={field.key}>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: '#666', display: 'block', marginBottom: 6 }}>
+                            {field.label}
+                          </label>
+                          {field.multiline ? (
+                            <textarea
+                              value={editValues[field.key] ?? ''}
+                              onChange={e => updateField(field.key, e.target.value)}
+                              rows={3}
+                              style={inputStyle}
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={editValues[field.key] ?? ''}
+                              onChange={e => updateField(field.key, e.target.value)}
+                              style={inputStyle}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── STEP 1 & 2: Template + Generate ─────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
       <div style={{
-        background: '#fff',
-        borderBottom: '1px solid #eee',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        height: 56,
-        gap: 16,
+        background: '#fff', borderBottom: '1px solid #eee', padding: '0 24px',
+        display: 'flex', alignItems: 'center', height: 56, gap: 16,
       }}>
         <Link href="/dashboard" style={{ fontSize: 13, color: '#888', textDecoration: 'none' }}>
           ← Kembali
@@ -106,11 +342,10 @@ export default function NewInvitationClient() {
       </div>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px' }}>
-
         {/* Stepper */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <StepDot active={step === 'template'} done={step === 'details'} number={1} label="Pilih template" />
-          <div style={{ flex: 1, height: 1, background: step === 'details' ? '#1a1a1a' : '#e0e0e0' }} />
+          <StepDot active={step === 'template'} done={step !== 'template'} number={1} label="Pilih template" />
+          <div style={{ flex: 1, height: 1, background: step !== 'template' ? '#1a1a1a' : '#e0e0e0' }} />
           <StepDot active={step === 'details'} done={false} number={2} label="Detail undangan" />
         </div>
 
@@ -124,12 +359,8 @@ export default function NewInvitationClient() {
             {/* Template badge */}
             {templateId && (
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '12px 20px',
-                borderBottom: '1px solid #f0f0f0',
-                background: '#fafafa',
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '12px 20px', borderBottom: '1px solid #f0f0f0', background: '#fafafa',
               }}>
                 <div style={{ width: 28, height: 28, borderRadius: 6, background: TEMPLATE_META[templateId].accent }} />
                 <div style={{ flex: 1 }}>
@@ -156,37 +387,33 @@ export default function NewInvitationClient() {
                 }}>Gemini 2.0</span>
               </div>
               <p style={{ fontSize: 12, color: '#999', margin: '0 0 16px' }}>
-                AI akan membuat satu halaman undangan digital yang unik — bukan sekedar isi template.
+                AI membuat satu halaman undangan digital yang unik. Setelah generate, kamu bisa edit per section.
               </p>
 
-              {/* Field 1: Tema visual */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
-                  Tema & gaya visual
-                  <span style={{ fontWeight: 400, color: '#aaa', marginLeft: 4 }}>(opsional)</span>
+                  Tema & gaya visual <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
                 </label>
                 <textarea
                   value={aiTheme}
                   onChange={e => setAiTheme(e.target.value)}
-                  placeholder="contoh: Tema islami dengan motif bunga liar watercolor, warna sage green dan dusty rose, nuansa hangat dan natural..."
+                  placeholder="contoh: islami paper quilling, emerald green dan gold, motif bulan sabit dan lentera, kesan mewah 3D..."
                   rows={2}
                   disabled={busy}
                   style={textareaStyle}
                 />
               </div>
 
-              {/* Field 2: Detail acara */}
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ marginBottom: 16 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
-                  Detail acara
-                  <span style={{ fontWeight: 400, color: '#e53e3e', marginLeft: 4 }}>*</span>
+                  Detail acara <span style={{ fontWeight: 400, color: '#e53e3e' }}>*</span>
                 </label>
                 <textarea
                   value={aiDetails}
                   onChange={e => setAiDetails(e.target.value)}
                   placeholder={
                     isWedding
-                      ? 'contoh: Pernikahan Arinda Putri dan Baskara Wijaya, Sabtu 14 Juni 2025, akad jam 08.00 resepsi jam 11.00–14.00, di The Sultan Hotel Yogyakarta, RSVP ke 08123456789'
+                      ? 'contoh: Pernikahan Arinda Putri dan Baskara Wijaya, Sabtu 14 Juni 2025, akad jam 08.00 resepsi jam 11.00–14.00 WIB, di The Sultan Hotel Yogyakarta, RSVP ke 08123456789'
                       : 'contoh: Ulang tahun Galuh ke-25, Sabtu 14 Juni 2025 jam 19.00, di Rooftop Kemang Jakarta Selatan, dresscode ungu'
                   }
                   rows={3}
@@ -202,24 +429,16 @@ export default function NewInvitationClient() {
                 onClick={handleAiGenerate}
                 disabled={!canGenerate}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
+                  display: 'flex', alignItems: 'center', gap: 8,
                   background: canGenerate ? '#18181b' : '#e4e4e7',
                   color: canGenerate ? '#fff' : '#a1a1aa',
-                  padding: '10px 20px',
-                  borderRadius: 8,
-                  border: 'none',
-                  fontSize: 14,
-                  fontWeight: 500,
+                  padding: '10px 20px', borderRadius: 8, border: 'none',
+                  fontSize: 14, fontWeight: 500,
                   cursor: canGenerate ? 'pointer' : 'default',
                   transition: 'all .15s',
                 }}
               >
-                {aiLoading
-                  ? <><Spinner /> Membuat halaman...</>
-                  : <><span>✨</span> Generate Undangan</>
-                }
+                {aiLoading ? <><Spinner /> Membuat halaman...</> : <><span>✨</span> Generate Undangan</>}
               </button>
             </div>
 
@@ -228,7 +447,7 @@ export default function NewInvitationClient() {
               <p style={{ fontSize: 13, color: '#888', margin: '0 0 14px' }}>
                 Atau isi manual — masukkan judul dulu, edit detail nanti
               </p>
-              <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: 10 }}>
                 <input
                   type="text"
                   value={title}
@@ -246,8 +465,8 @@ export default function NewInvitationClient() {
                   disabled={!title.trim() || busy}
                   style={{
                     background: '#fff', color: '#1a1a1a', padding: '10px 18px',
-                    borderRadius: 8, border: '1.5px solid #d4d4d8', fontSize: 13,
-                    fontWeight: 500, cursor: title.trim() && !busy ? 'pointer' : 'default',
+                    borderRadius: 8, border: '1.5px solid #d4d4d8', fontSize: 13, fontWeight: 500,
+                    cursor: title.trim() && !busy ? 'pointer' : 'default',
                     opacity: !title.trim() ? 0.4 : 1, whiteSpace: 'nowrap',
                   }}
                 >
@@ -268,32 +487,31 @@ export default function NewInvitationClient() {
   )
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '9px 12px', borderRadius: 8,
+  border: '1.5px solid #e8e8e8', fontSize: 13, boxSizing: 'border-box',
+  outline: 'none', fontFamily: 'inherit', color: '#1a1a1a',
+  resize: 'vertical' as const,
+}
+
 const textareaStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '10px 14px',
-  borderRadius: 8,
-  border: '1.5px solid #e8e8e8',
-  fontSize: 13,
-  boxSizing: 'border-box',
-  outline: 'none',
-  fontFamily: 'inherit',
-  resize: 'vertical',
-  color: '#1a1a1a',
-  lineHeight: 1.6,
+  width: '100%', padding: '10px 14px', borderRadius: 8,
+  border: '1.5px solid #e8e8e8', fontSize: 13, boxSizing: 'border-box',
+  outline: 'none', fontFamily: 'inherit', resize: 'vertical' as const,
+  color: '#1a1a1a', lineHeight: 1.6,
 }
 
 function Spinner() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 0.8s linear infinite' }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+      style={{ animation: 'spin 0.8s linear infinite' }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
     </svg>
   )
 }
 
-function StepDot({ active, done, number, label }: {
-  active: boolean; done: boolean; number: number; label: string
-}) {
+function StepDot({ active, done, number, label }: { active: boolean; done: boolean; number: number; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{
