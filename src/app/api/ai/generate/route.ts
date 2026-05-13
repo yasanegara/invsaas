@@ -168,111 +168,52 @@ export async function POST(request: Request) {
   const isWedding = eventType === 'wedding'
 
   const SECTION_IDS: Record<string, string> = {
-    wedding: `<section id="section-hero">   — foto/nama besar mempelai, tanggal, quote romantis
-<section id="section-pesan">  — pesan pembuka hangat, ayat Al-Qur'an/quote cinta
-<section id="section-akad">   — detail lengkap akad (waktu, venue, alamat)
-<section id="section-resepsi">— detail lengkap resepsi (waktu, venue, alamat)
-<section id="section-rsvp">   — tombol WhatsApp konfirmasi kehadiran
-<section id="section-footer"> — hashtag, ucapan terima kasih`,
-    birthday: `<section id="section-hero">   — nama, usia/ke berapa, tanggal
-<section id="section-pesan">  — pesan undangan hangat
-<section id="section-detail"> — waktu, tempat, dresscode
-<section id="section-rsvp">   — tombol konfirmasi
-<section id="section-footer"> — footer`,
-    ceremony: `<section id="section-hero">   — nama anak/bayi dan orang tua, tanggal
-<section id="section-pesan">  — pesan syukur, doa, ayat Al-Qur'an
-<section id="section-detail"> — waktu dan tempat acara
-<section id="section-rsvp">   — tombol konfirmasi kehadiran
-<section id="section-footer"> — footer dengan doa`,
-    graduation: `<section id="section-hero">   — nama wisudawan, program studi, universitas
-<section id="section-pesan">  — pesan syukur dan pencapaian
-<section id="section-detail"> — waktu, tempat, dresscode
-<section id="section-rsvp">   — tombol konfirmasi
-<section id="section-footer"> — footer`,
-  }
-
-  const DATA_EDIT_EXTRA: Record<string, string> = {
-    wedding: `section-akad:
-  <p data-edit="akad-time">       — waktu akad
-  <p data-edit="akad-venue">      — nama venue akad
-  <p data-edit="akad-address">    — alamat akad
-
-section-resepsi:
-  <p data-edit="resepsi-time">    — waktu resepsi
-  <p data-edit="resepsi-venue">   — nama venue resepsi
-  <p data-edit="resepsi-address"> — alamat resepsi`,
-    birthday: `section-detail:
-  <p data-edit="event-time">      — waktu acara
-  <p data-edit="event-venue">     — nama tempat
-  <p data-edit="event-address">   — alamat
-  <p data-edit="dresscode">       — dresscode`,
-    ceremony: `section-detail:
-  <p data-edit="event-time">      — waktu acara
-  <p data-edit="event-venue">     — nama tempat
-  <p data-edit="event-address">   — alamat`,
-    graduation: `section-detail:
-  <p data-edit="event-time">      — waktu acara
-  <p data-edit="event-venue">     — nama tempat/gedung
-  <p data-edit="event-address">   — alamat
-  <p data-edit="dresscode">       — dresscode`,
+    wedding:    'section-hero, section-pesan, section-akad, section-resepsi, section-rsvp, section-footer',
+    birthday:   'section-hero, section-pesan, section-detail, section-rsvp, section-footer',
+    ceremony:   'section-hero, section-pesan, section-detail, section-rsvp, section-footer',
+    graduation: 'section-hero, section-pesan, section-detail, section-rsvp, section-footer',
   }
 
   const EVENT_TYPE_LABEL: Record<string, string> = {
-    wedding: 'Pernikahan',
-    birthday: 'Ulang Tahun',
-    ceremony: 'Khitanan/Aqiqah',
-    graduation: 'Wisuda',
+    wedding: 'Pernikahan', birthday: 'Ulang Tahun', ceremony: 'Khitanan/Aqiqah', graduation: 'Wisuda',
   }
 
   const dataEditList = eventType === 'wedding'
     ? 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, akad-time, akad-venue, akad-address, resepsi-time, resepsi-venue, resepsi-address, rsvp-button, hashtag'
     : 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, event-time, event-venue, event-address, rsvp-button, hashtag'
 
-  const systemPrompt = `You are a senior front-end developer specializing in beautiful Indonesian digital invitations. Generate a complete, gorgeous HTML invitation page.
+  const systemPrompt = `Kamu adalah front-end developer spesialis undangan digital Indonesia. Buat halaman HTML undangan yang lengkap, sangat indah, dan profesional.
 
-## EVENT DATA (use EXACTLY as given, do not change names/dates/venues)
-Type: ${EVENT_TYPE_LABEL[eventType]}
+JENIS: ${EVENT_TYPE_LABEL[eventType]}
+DATA ACARA (gunakan PERSIS — jangan ubah nama, tanggal, tempat):
 ${details.trim()}
 
-## STYLE & THEME
-${theme.trim() || meta.themeHint}${refImage ? '\nUser provided a REFERENCE IMAGE — match its visual style, color palette, and mood closely.' : ''}
+GAYA VISUAL: ${theme.trim() || meta.themeHint}${refImage ? '\nSesuaikan gaya, palet warna, dan mood dari gambar referensi.' : ''}
 
-## REQUIRED TECHNICAL STRUCTURE
-1. DOCTYPE html, UTF-8 meta, viewport meta
-2. Tailwind CSS CDN: <script src="https://cdn.tailwindcss.com"></script>
-3. Google Fonts: load 2 fonts (decorative/script + clean sans-serif) via <link>
-4. tailwind.config script with primary/accent colors and fontFamily matching the theme
-5. ALL backgrounds MUST use inline style="background:..." — Tailwind CDN may fail to load background utilities
-6. All SVG ornaments must be inline <svg> — no external URLs
+TEKNIS WAJIB:
+- <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+- <script src="https://cdn.tailwindcss.com"></script> + tailwind.config dengan warna tema
+- Google Fonts 2 font (script dekoratif + sans-serif) via <link>
+- SEMUA background wajib inline style="background:linear-gradient(...)" — JANGAN class Tailwind bg-*
+- Ornamen SVG: inline <svg>...</svg>, bukan URL eksternal
+- Mobile-first, semua section responsif
 
-## REQUIRED PAGE STRUCTURE
-Part 1 — Cover: <div id="cover" style="min-height:100vh; background:...; display:flex; align-items:center; justify-content:center">
-  - Names in large decorative font, date, decorative divider
-  - Big button: <button data-edit="cover-button" onclick="openInvitation()">✉ Buka Undangan</button>
+STRUKTUR HALAMAN:
+1. <div id="cover" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:...">
+   Nama besar font script, tanggal, ornamen SVG, tombol:
+   <button data-edit="cover-button" onclick="openInvitation()">✉ Buka Undangan</button>
+2. <div id="content" style="display:none;opacity:0">
+   Berisi section (gunakan id tepat): ${SECTION_IDS[eventType]}
+3. Script wajib di body:
+   <script>function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s';i.style.opacity='1';},30);},800);}</script>
 
-Part 2 — Content: <div id="content" style="display:none; opacity:0">
-  Sections: ${SECTION_IDS[eventType].replace(/\n/g, ' | ')}
+DATA-EDIT: SETIAP teks yang tampil ke tamu WAJIB punya atribut data-edit.
+Keys wajib: ${dataEditList}
+Contoh: <h2 data-edit="hero-names">Ahmad & Siti</h2>, <p data-edit="opening-message">Pesan...</p>
 
-JavaScript (inline in body):
-function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s ease';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s ease';i.style.opacity='1';},30);},800);}
+VISUAL: Tiap section punya gradient background unik, ornamen SVG dekoratif, card glassmorphism, animasi fadeInUp. Nama utama font script text-5xl+. Tombol RSVP rounded-full gradient shadow-lg.
 
-## REQUIRED data-edit ATTRIBUTES
-Every visible text element MUST have a data-edit attribute. Example:
-<h1 data-edit="hero-names" class="...">Nama Mempelai</h1>
-<p data-edit="hero-tagline" class="...">Tagline</p>
-
-Required keys: ${dataEditList}
-${DATA_EDIT_EXTRA[eventType]}
-
-## VISUAL QUALITY STANDARDS
-${cfg.visual_standard}
-
-## CONTENT CONSTRAINTS
-${cfg.constraint_data}
-
-## OUTPUT FORMAT
-${cfg.constraint_output}
-Start directly with <!DOCTYPE html — no explanation, no markdown fences.`
+OUTPUT: Mulai langsung <!DOCTYPE html hingga </html>. Tanpa markdown, tanpa penjelasan.`
 
   type ContentPart =
     | { type: 'text'; text: string }
