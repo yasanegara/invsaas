@@ -246,22 +246,46 @@ export default function NewInvitationClient() {
     setError('')
     try {
       const palette = COLOR_PALETTES.find(p => p.id === colorPalette)
-      const bgLabel = BG_STYLES.find(b => b.id === bgStyle)?.label ?? ''
-      const animLabel = ANIM_LEVELS.find(a => a.id === animLevel)?.label ?? ''
-      const visualLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label ?? ''
       const typo = TYPOGRAPHY_PAIRS.find(t => t.id === typoPair)
-      const ornamentLabel = ORNAMENT_STYLES.find(o => o.id === ornamentStyle)?.label ?? ''
+      const visualLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label?.replace(/^[\p{Emoji}\s]+/u, '').trim() ?? ''
+
+      const bgInstruction =
+        bgStyle === 'gradient'  ? 'Background setiap section: gradient berlapis minimal 3 warna, smooth diagonal atau radial' :
+        bgStyle === 'geometric' ? 'Background: pola geometri (hexagon, diamond, atau grid SVG inline) sebagai overlay dekoratif di atas gradient' :
+        bgStyle === 'floral'    ? 'Background: motif floral atau batik — ornamen bunga dan daun SVG mengisi area background' :
+        bgStyle === 'solid'     ? 'Background: warna solid elegan dengan subtle noise texture dan border dekoratif' : ''
+
+      const animInstruction =
+        animLevel === 'subtle' ? 'Animasi: minimal — hanya fadeIn 1s pada section, tidak ada looping animation' :
+        animLevel === 'medium' ? 'Animasi: sedang — fadeInUp 0.6s pada tiap section, float 3s infinite pada ornamen utama, scroll reveal via IntersectionObserver' :
+        animLevel === 'rich'   ? 'Animasi: meriah — fadeInUp, shimmer pada teks nama, float pada ornamen, pulse-glow pada tombol, particle confetti jika memungkinkan' : ''
+
+      const paletteInstruction = palette
+        ? `Palet warna WAJIB diikuti: ${palette.colors[0]} (primary/accent), ${palette.colors[1]} (light), ${palette.colors[2]} (dark). Gunakan ketiga warna ini secara konsisten di seluruh halaman.`
+        : ''
+
+      const fontInstruction = typo
+        ? `Font WAJIB: nama/heading pakai "${typo.fonts.split(' + ')[0]}" (load Google Fonts), teks body pakai "${typo.fonts.split(' + ')[1]}". Set keduanya di tailwind.config fontFamily.`
+        : ''
+
+      const ornamentInstruction =
+        ornamentStyle === 'floral-svg'    ? 'Ornamen: SVG inline bunga, daun, dan ranting — wajib ada di setiap divider antar section' :
+        ornamentStyle === 'geometric-svg' ? 'Ornamen: SVG bintang 8 sudut dan pola arabesk geometri Islam di divider dan sudut section' :
+        ornamentStyle === 'minimal-line'  ? 'Ornamen: garis tipis horizontal dengan diamond/dot di tengah sebagai divider, minimalis' :
+        ornamentStyle === 'mandala'       ? 'Ornamen: SVG mandala lingkaran di header section hero dan footer' :
+        ornamentStyle === 'ribbon'        ? 'Ornamen: SVG pita dan ribbon melengkung di border atas/bawah setiap section' : ''
+
       const stylePrompt = [
-        palette ? `Palet warna: ${palette.label} (${palette.colors.join(', ')})` : '',
-        `Background: ${bgLabel}`,
-        `Animasi: ${animLabel}`,
+        paletteInstruction,
+        bgInstruction,
+        animInstruction,
         visualStyle !== 'none' ? `Gaya visual: ${visualLabel}` : '',
-        typo ? `Tipografi: ${typo.fonts}` : '',
-        `Ornamen: ${ornamentLabel}`,
-        musicUrl.trim() ? `Musik latar: ${musicUrl.trim()} — embed audio dengan floating play/pause button` : '',
-        socialMedia.trim() ? `Tagar/medsos: ${socialMedia.trim()}` : '',
+        fontInstruction,
+        ornamentInstruction,
+        musicUrl.trim() ? `Musik latar: ${musicUrl.trim()} — embed <audio loop> dan buat floating play/pause button di kanan bawah` : '',
+        socialMedia.trim() ? `Tagar / media sosial: ${socialMedia.trim()}` : '',
         aiTheme.trim(),
-      ].filter(Boolean).join('. ')
+      ].filter(Boolean).join('\n')
 
       const res = await fetch('/api/ai/generate', {
         method: 'POST',

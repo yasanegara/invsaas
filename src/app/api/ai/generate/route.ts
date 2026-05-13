@@ -224,7 +224,9 @@ section-resepsi:
     graduation: 'Wisuda',
   }
 
-  const systemPrompt = `## ROLE
+  const systemPrompt = `⚠️ INSTRUKSI KRITIKAL: Kamu TIDAK memiliki akses ke tools, fungsi, filesystem, atau MCP apapun. JANGAN memanggil function_calls, invoke, atau tools dalam bentuk apapun. Tugas kamu hanya SATU: langsung tulis kode HTML sebagai output. Mulai output dengan <!DOCTYPE html dan akhiri dengan </html>. Tidak ada teks lain.
+
+## ROLE
 ${cfg.role}
 
 ## TASK
@@ -265,7 +267,7 @@ ${cfg.prompt_kamus_desain}
 ━━━ STANDAR VISUAL TINGGI ━━━
 ${cfg.visual_standard}
 
-━━━ TEMA & GAYA ━━━
+━━━ TEMA & GAYA — WAJIB DIIKUTI PERSIS ━━━
 ${theme.trim() || meta.themeHint}
 ${refImage ? '\n⚠️ User melampirkan GAMBAR REFERENSI. Tiru gaya visual, palet warna, nuansa, dan layout dari gambar tersebut. Jadikan sebagai inspirasi utama desain.' : ''}
 
@@ -279,8 +281,9 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'high' } }
 
+  const userText = '<!DOCTYPE html'
   const userContent: ContentPart[] = [
-    { type: 'text', text: 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
+    { type: 'text', text: userText },
   ]
   if (refImage) {
     userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
@@ -292,12 +295,14 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
       model: cfg.model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: refImage ? userContent : 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
+        { role: 'user', content: refImage ? userContent : userText },
+        { role: 'assistant', content: '<!DOCTYPE html' },
       ],
       temperature: cfg.temperature,
       max_tokens: cfg.max_tokens,
     })
-    raw = completion.choices[0]?.message?.content ?? ''
+    // Prefill '<!DOCTYPE html' dikirim sebagai assistant message — sambung ke completion
+    raw = '<!DOCTYPE html' + (completion.choices[0]?.message?.content ?? '')
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[ai/generate] API error:', msg)
