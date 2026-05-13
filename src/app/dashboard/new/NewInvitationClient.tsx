@@ -306,43 +306,49 @@ export default function NewInvitationClient() {
     try {
       const palette = COLOR_PALETTES.find(p => p.id === colorPalette)
       const typo = TYPOGRAPHY_PAIRS.find(t => t.id === typoPair)
-      const visualLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label?.replace(/^[\p{Emoji}\s]+/u, '').trim() ?? ''
-
       const bgInstruction =
-        bgStyle === 'gradient'  ? 'Background setiap section: gradient berlapis minimal 3 warna, smooth diagonal atau radial' :
-        bgStyle === 'geometric' ? 'Background: pola geometri (hexagon, diamond, atau grid SVG inline) sebagai overlay dekoratif di atas gradient' :
-        bgStyle === 'floral'    ? 'Background: motif floral atau batik — ornamen bunga dan daun SVG mengisi area background' :
-        bgStyle === 'solid'     ? 'Background: warna solid elegan dengan subtle noise texture dan border dekoratif' : ''
+        bgStyle === 'gradient'  ? 'BACKGROUND: setiap section pakai gradient berlapis 3 warna, variasikan arah (135deg, 180deg, radial-gradient)' :
+        bgStyle === 'geometric' ? 'BACKGROUND: overlay pola geometri SVG inline (hexagon atau diamond grid) di atas gradient, opacity 0.15' :
+        bgStyle === 'floral'    ? 'BACKGROUND: ornamen bunga dan daun SVG mengisi area background setiap section sebagai pattern dekoratif' :
+        bgStyle === 'solid'     ? 'BACKGROUND: warna solid elegan dengan box-shadow inset halus dan border dekoratif tipis' : ''
 
       const animInstruction =
-        animLevel === 'subtle' ? 'Animasi: minimal — hanya fadeIn 1s pada section, tidak ada looping animation' :
-        animLevel === 'medium' ? 'Animasi: sedang — fadeInUp 0.6s pada tiap section, float 3s infinite pada ornamen utama, scroll reveal via IntersectionObserver' :
-        animLevel === 'rich'   ? 'Animasi: meriah — fadeInUp, shimmer pada teks nama, float pada ornamen, pulse-glow pada tombol, particle confetti jika memungkinkan' : ''
+        animLevel === 'subtle' ? 'ANIMASI: hanya opacity fadeIn 1s pada load section, tidak ada looping animation' :
+        animLevel === 'medium' ? 'ANIMASI: fadeInUp 0.6s tiap section via IntersectionObserver, float 3s infinite pada ornamen header' :
+        animLevel === 'rich'   ? 'ANIMASI: fadeInUp pada section, shimmer @keyframes pada teks nama, float pada ornamen, pulse-glow pada tombol RSVP' : ''
 
       const paletteInstruction = palette
-        ? `Palet warna WAJIB diikuti: ${palette.colors[0]} (primary/accent), ${palette.colors[1]} (light), ${palette.colors[2]} (dark). Gunakan ketiga warna ini secara konsisten di seluruh halaman.`
+        ? `PALET WARNA WAJIB: primary=${palette.colors[0]}, light=${palette.colors[1]}, dark=${palette.colors[2]} — gunakan konsisten di seluruh halaman`
         : ''
 
+      const visualInstruction =
+        visualStyle === 'glassmorphism'  ? 'GAYA GLASSMORPHISM: card/panel pakai style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2)"' :
+        visualStyle === 'paper-quilling' ? 'GAYA PAPER QUILLING: elemen pakai box-shadow:inset 2px 2px 5px rgba(0,0,0,0.3),inset -2px -2px 5px rgba(255,255,255,0.5) untuk efek kertas 3D' :
+        visualStyle === 'neumorphism'    ? 'GAYA NEUMORPHISM: elemen pakai box-shadow kembar "6px 6px 12px rgba(0,0,0,0.2),-6px -6px 12px rgba(255,255,255,0.7)" pada background solid' :
+        visualStyle === 'royal-islamic'  ? 'GAYA ROYAL ISLAMIC: override palet ke Navy #1e3a5f, Gold #D4AF37, Cream #FDFBF7; ornamen arabesk dan kaligrafi SVG' :
+        visualStyle === 'earth-tones'    ? 'GAYA EARTH TONES: override palet ke Terakota #c4652a, Beige #f5e6c8, Olive #5a6e2c; tekstur organik hangat' :
+        visualStyle === 'cyberpunk'      ? 'GAYA CYBERPUNK NEON: background hitam #000, aksen Neon Biru #00f3ff dan Neon Pink #ff003c, text-shadow:0 0 10px #00f3ff pada nama' : ''
+
       const fontInstruction = typo
-        ? `Font WAJIB: nama/heading pakai "${typo.fonts.split(' + ')[0]}" (load Google Fonts), teks body pakai "${typo.fonts.split(' + ')[1]}". Set keduanya di tailwind.config fontFamily.`
+        ? `FONT WAJIB: heading/nama pakai "${typo.fonts.split(' + ')[0]}" (Google Fonts), body pakai "${typo.fonts.split(' + ')[1]}" — load keduanya via <link> dan set di tailwind.config fontFamily`
         : ''
 
       const ornamentInstruction =
-        ornamentStyle === 'floral-svg'    ? 'Ornamen: SVG inline bunga, daun, dan ranting — wajib ada di setiap divider antar section' :
-        ornamentStyle === 'geometric-svg' ? 'Ornamen: SVG bintang 8 sudut dan pola arabesk geometri Islam di divider dan sudut section' :
-        ornamentStyle === 'minimal-line'  ? 'Ornamen: garis tipis horizontal dengan diamond/dot di tengah sebagai divider, minimalis' :
-        ornamentStyle === 'mandala'       ? 'Ornamen: SVG mandala lingkaran di header section hero dan footer' :
-        ornamentStyle === 'ribbon'        ? 'Ornamen: SVG pita dan ribbon melengkung di border atas/bawah setiap section' : ''
+        ornamentStyle === 'floral-svg'    ? 'ORNAMEN: SVG inline bunga, daun, dan ranting di setiap divider antar section' :
+        ornamentStyle === 'geometric-svg' ? 'ORNAMEN: SVG bintang 8 sudut dan arabesk Islam di divider dan sudut section' :
+        ornamentStyle === 'minimal-line'  ? 'ORNAMEN: garis tipis horizontal dengan diamond SVG di tengah sebagai divider, bersih dan minimalis' :
+        ornamentStyle === 'mandala'       ? 'ORNAMEN: SVG mandala lingkaran konsentris di header section-hero dan footer' :
+        ornamentStyle === 'ribbon'        ? 'ORNAMEN: SVG pita melengkung di border atas dan bawah setiap section' : ''
 
       const stylePrompt = [
         paletteInstruction,
         bgInstruction,
         animInstruction,
-        visualStyle !== 'none' ? `Gaya visual: ${visualLabel}` : '',
+        visualInstruction,
         fontInstruction,
         ornamentInstruction,
-        musicUrl.trim() ? `Musik latar: ${musicUrl.trim()} — embed <audio loop> dan buat floating play/pause button di kanan bawah` : '',
-        socialMedia.trim() ? `Tagar / media sosial: ${socialMedia.trim()}` : '',
+        musicUrl.trim() ? `MUSIK: embed <audio src="${musicUrl.trim()}" loop autoplay> dan floating button play/pause fixed bottom-right` : '',
+        socialMedia.trim() ? `MEDSOS/HASHTAG: tampilkan "${socialMedia.trim()}" di section footer` : '',
         aiTheme.trim(),
       ].filter(Boolean).join('\n')
 
