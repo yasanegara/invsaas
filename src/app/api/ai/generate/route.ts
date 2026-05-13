@@ -289,16 +289,47 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
     userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
   }
 
-  const FALLBACK_MODEL = 'gpt-4o'
-  const messages = [
-    { role: 'system' as const, content: systemPrompt },
-    { role: 'user' as const, content: (refImage ? userContent : userText) as string },
-  ]
+  // Prompt ringkas untuk fallback model (gpt-4o tidak perlu instruksi panjang)
+  const dataEditKeys = eventType === 'wedding'
+    ? 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, akad-time, akad-venue, akad-address, resepsi-time, resepsi-venue, resepsi-address, rsvp-button, hashtag'
+    : 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, event-time, event-venue, event-address, rsvp-button, hashtag'
 
-  async function callModel(model: string): Promise<string> {
+  const fallbackSystemPrompt = `Kamu adalah developer front-end spesialis undangan digital. Buat satu halaman HTML undangan ${EVENT_TYPE_LABEL[eventType]} yang sangat indah, lengkap, dan profesional.
+
+DATA ACARA (gunakan persis):
+${details.trim()}
+
+GAYA VISUAL:
+${theme.trim() || meta.themeHint}
+
+WAJIB TEKNIS:
+- Tailwind CSS CDN: <script src="https://cdn.tailwindcss.com"></script>
+- Google Fonts: 2 font (script + sans-serif), load via <link>
+- SEMUA background WAJIB pakai inline style="background:..." (bukan class Tailwind)
+- Ornamen: SVG inline di HTML, bukan URL eksternal
+- Mobile-first, responsif
+
+STRUKTUR WAJIB:
+1. <div id="cover"> — halaman pembuka dengan nama, tanggal, tombol "✉ Buka Undangan" onclick="openInvitation()"
+2. <div id="content" style="display:none;opacity:0"> — konten utama
+3. Section IDs di dalam content: ${SECTION_IDS[eventType].replace(/\n/g, ', ').replace(/<section id="([^"]+)">[^<]*/g, '$1')}
+4. JavaScript wajib: function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s ease';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s ease';i.style.opacity='1';},30);},800);}
+
+DATA-EDIT WAJIB (setiap teks konten harus ada atribut data-edit):
+${dataEditKeys}
+Contoh: <h1 data-edit="hero-names">Nama Mempelai</h1>
+
+OUTPUT: HANYA kode HTML dari <!DOCTYPE html sampai </html>. Tanpa penjelasan, tanpa markdown.`
+
+  const FALLBACK_MODEL = 'gpt-4o'
+
+  async function callModel(model: string, sysprompt: string, usermsg: string | ContentPart[]): Promise<string> {
     const completion = await openai.chat.completions.create({
       model,
-      messages,
+      messages: [
+        { role: 'system', content: sysprompt },
+        { role: 'user', content: usermsg as string },
+      ],
       temperature: cfg.temperature,
       max_tokens: cfg.max_tokens,
     })
@@ -316,17 +347,19 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
     )
   }
 
+  const fallbackUserMsg = `Buat sekarang. Hasilkan undangan ${EVENT_TYPE_LABEL[eventType]} yang sangat indah dan lengkap sesuai instruksi di atas.`
+
   let raw = ''
   let usedModel = cfg.model
   try {
-    raw = await callModel(cfg.model)
+    raw = await callModel(cfg.model, systemPrompt, refImage ? userContent : userText)
     console.log(`[ai/generate] model=${cfg.model} raw length=${raw.length} | first 100: ${raw.slice(0, 100)}`)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     console.warn(`[ai/generate] primary model ${cfg.model} failed: ${msg} — switching to ${FALLBACK_MODEL}`)
     try {
       usedModel = FALLBACK_MODEL
-      raw = await callModel(FALLBACK_MODEL)
+      raw = await callModel(FALLBACK_MODEL, fallbackSystemPrompt, fallbackUserMsg)
       console.log(`[ai/generate] fallback model=${FALLBACK_MODEL} raw length=${raw.length}`)
     } catch (err2: unknown) {
       const msg2 = err2 instanceof Error ? err2.message : String(err2)
@@ -340,7 +373,7 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
     console.warn(`[ai/generate] primary returned non-HTML (${raw.length} chars), switching to ${FALLBACK_MODEL}`)
     try {
       usedModel = FALLBACK_MODEL
-      raw = await callModel(FALLBACK_MODEL)
+      raw = await callModel(FALLBACK_MODEL, fallbackSystemPrompt, fallbackUserMsg)
       customHtml = extractHtml(raw)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
