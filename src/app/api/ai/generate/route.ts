@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import Groq from 'groq-sdk'
+import OpenAI from 'openai'
 
 function extractTitle(html: string, details: string, isWedding: boolean): string {
   const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)
@@ -18,7 +18,7 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
 }
 
 export async function POST(request: Request) {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -37,26 +37,18 @@ export async function POST(request: Request) {
 
   const systemPrompt = `Kamu adalah web developer senior Indonesia yang ahli membuat undangan digital mewah dan interaktif.
 
-OUTPUT: HANYA kode HTML dari <!DOCTYPE html> hingga </html>. Tidak ada penjelasan.
+OUTPUT: HANYA kode HTML dari <!DOCTYPE html> hingga </html>. Tidak ada penjelasan apapun.
 
-━━━ SETUP WAJIB (harus persis seperti ini) ━━━
+━━━ SETUP WAJIB ━━━
 <head> harus berisi:
 1. <script src="https://cdn.tailwindcss.com"></script>
-2. Google Fonts yang sesuai tema (pilih dari: Cormorant+Garamond, Great+Vibes, Amiri, Cinzel, Dancing+Script, Playfair+Display, Raleway, Montserrat, Nunito, Pacifico)
-3. <script>tailwind.config = { theme: { extend: { colors: { ... }, fontFamily: { ... } } } }</script>
-4. <style> untuk animasi CSS custom
+2. Google Fonts yang sesuai tema via <link> (pilih dari: Cormorant+Garamond, Great+Vibes, Amiri, Cinzel, Dancing+Script, Playfair+Display, Raleway, Montserrat, Nunito, Pacifico)
+3. <script>tailwind.config = { theme: { extend: { colors: {...}, fontFamily: {...} } } }</script>
+4. <style> untuk animasi @keyframes custom
 
 ━━━ POLA COVER + ISI (WAJIB) ━━━
-Struktur HTML:
-- <div id="cover"> : tampil pertama, FULL SCREEN, sangat cantik
-  - Background: gradient berlapis atau pattern yang kaya
-  - Ornamen dekoratif di sudut-sudut (SVG atau CSS)
-  - Nama besar dalam font script/kaligrafi
-  - Tombol "✉ Buka Undangan" yang elegan (rounded-full, gradient, hover effect)
-  - TIDAK boleh ada scrollbar, harus min-h-screen flex items-center justify-center
-
-- <div id="content" style="display:none; opacity:0"> : isi undangan
-  - Muncul setelah tombol diklik dengan animasi fade-in
+- <div id="cover"> : full-screen (min-h-screen), tampil pertama, background gradient/pattern kaya, ornamen SVG dekoratif di sudut, nama besar font script, tombol "✉ Buka Undangan" elegan
+- <div id="content" style="display:none;opacity:0"> : semua isi undangan
 
 JavaScript wajib:
 function openInvitation() {
@@ -67,83 +59,46 @@ function openInvitation() {
     c.style.display = 'none';
     var i = document.getElementById('content');
     i.style.display = 'block';
-    setTimeout(function(){
-      i.style.transition = 'opacity 0.7s';
-      i.style.opacity = '1';
-    }, 20);
+    setTimeout(function(){ i.style.transition='opacity 0.7s'; i.style.opacity='1'; }, 20);
   }, 700);
 }
 
-━━━ STANDAR DESAIN TINGGI (WAJIB IKUTI) ━━━
-Komponen yang harus INDAH:
-- Cards: rounded-2xl shadow-2xl dengan border transparan gold/warna aksen
-- Sections: padding yang lega (py-16 atau lebih), tidak sesak
-- Typography hierarchy: nama/judul SANGAT BESAR (text-5xl+), heading sedang (text-2xl), body kecil tapi terbaca
-- Divider: ornamen SVG atau gradient line, bukan <hr> polos
-- Tombol RSVP: besar, menonjol, rounded-full atau rounded-xl dengan gradient
-- Footer: dark/colored dengan nama dalam font script
-- Animasi: @keyframes float (naik-turun), fadeIn untuk sections
-- Dekorasi: SVG inline untuk motif/ornamen sesuai tema (bulan sabit, bunga, bintang, dll)
+━━━ STANDAR KUALITAS DESAIN ━━━
+- Cards: rounded-2xl shadow-2xl, border semi-transparan warna aksen
+- Typography: nama/judul text-5xl atau lebih, hierarchy jelas
+- Ornamen: SVG inline untuk motif (bulan sabit, bunga, bintang, dll) sesuai tema
+- Warna: rich & harmonis, gunakan CSS custom properties
+- Spacing: lega, min py-16 per section
+- Tombol RSVP: besar, rounded-full, gradient, hover effect
+- Animasi: @keyframes float dan fadeInUp untuk elemen-elemen
 
 ━━━ TEMA & GAYA VISUAL ━━━
-${theme.trim() || `Buat desain yang elegan dan mewah sesuai tipe acara: ${isWedding ? 'pernikahan romantis' : 'ulang tahun meriah'}`}
+${theme.trim() || `Desain elegan dan mewah untuk ${isWedding ? 'pernikahan romantis' : 'ulang tahun meriah'}`}
 
 ━━━ DETAIL ACARA ━━━
 Tipe: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
 ${details.trim()}
 
-━━━ STRUKTUR KONTEN (dalam id="content") ━━━
-${isWedding ? `
-SECTION 1 — Hero:
-- Bismillah dalam font Amiri (Arab): بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيم
-- Nama kedua mempelai dalam font script, SANGAT BESAR
-- Simbol "&" atau "dan" yang dekoratif di antara nama
-- Tanggal dengan ornamen
+━━━ STRUKTUR KONTEN ━━━
+${isWedding ? `Hero: Bismillah (font Amiri Arab), nama besar kedua mempelai dalam font script, tanggal
+Pesan: ayat Quran/quote romantis, kalimat undangan hangat
+Detail: 2 kartu (Akad + Resepsi) dengan waktu, venue, alamat
+RSVP: tombol besar link WhatsApp (https://wa.me/[nomor tanpa +]) jika ada nomor
+Footer: dark, nama dalam font script, hashtag` : `Hero: badge pesta, nama besar bold, usia ke-X, tanggal, emoji 🎉🎂🎈🎁🥳
+Pesan: kalimat undangan ceria
+Detail: kartu tanggal+waktu, tempat+alamat, dresscode jika ada
+RSVP: tombol besar konfirmasi
+Footer: dark, hashtag`}
 
-SECTION 2 — Pesan:
-- Ayat Quran tentang pernikahan (jika tema islami) atau quote romantis
-- Kalimat undangan yang hangat dan formal
+TIDAK ADA penjelasan. HANYA HTML.`
 
-SECTION 3 — Detail Acara:
-- 2 kartu (Akad + Resepsi) dengan ikon dan informasi lengkap
-- Nama venue, waktu, alamat
-
-SECTION 4 — RSVP:
-- Tombol besar link WhatsApp (https://wa.me/[nomor]) jika ada nomor
-- Atau tombol "Konfirmasi Kehadiran"
-
-SECTION 5 — Footer:
-- Background gelap
-- Nama pasangan dalam font script
-- Hashtag jika ada
-` : `
-SECTION 1 — Hero:
-- Badge "BIRTHDAY PARTY" atau "YOU'RE INVITED"
-- Nama yang berulang tahun, SANGAT BESAR, font bold/playful
-- Usia (ke-X) dan tanggal
-- Row emoji pesta: 🎉 🎂 🎈 🎁 🥳
-
-SECTION 2 — Pesan:
-- Kalimat undangan yang ceria dan mengundang
-
-SECTION 3 — Detail Acara:
-- Kartu info: tanggal+waktu, tempat+alamat, dresscode (jika ada)
-
-SECTION 4 — RSVP:
-- Tombol besar konfirmasi kehadiran
-
-SECTION 5 — Footer dengan hashtag
-`}
-
-Buat seindah mungkin. HANYA HTML.`
-
-  const completion = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o',
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: 'Buat undangan digitalnya sekarang, pastikan sangat indah dan profesional.' },
+      { role: 'user', content: 'Buat undangan digitalnya sekarang, sangat indah dan profesional.' },
     ],
-    temperature: 0.65,
+    temperature: 0.7,
     max_tokens: 6000,
   })
 

@@ -153,7 +153,7 @@ export default function NewInvitationClient() {
                 <span style={{
                   fontSize: 11, padding: '2px 7px', borderRadius: 10,
                   background: '#f0fdf4', color: '#166534', fontWeight: 500,
-                }}>Groq</span>
+                }}>GPT-4o</span>
               </div>
               <p style={{ fontSize: 12, color: '#999', margin: '0 0 16px' }}>
                 AI akan membuat satu halaman undangan digital yang unik — bukan sekedar isi template.

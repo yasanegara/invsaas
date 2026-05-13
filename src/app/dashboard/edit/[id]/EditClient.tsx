@@ -174,7 +174,7 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
             <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', background: '#fafafa', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16 }}>✨</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Undangan AI</span>
-              <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: '#f0fdf4', color: '#166534', fontWeight: 500 }}>Groq</span>
+              <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: '#f0fdf4', color: '#166534', fontWeight: 500 }}>GPT-4o</span>
             </div>
 
             {/* Preview iframe - scaled to fit the panel */}
