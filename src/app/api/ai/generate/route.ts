@@ -14,7 +14,7 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
 }
 
 const DEFAULTS = {
-  model: process.env.OPENAI_MODEL ?? 'anthropic/claude-sonnet-4-6',
+  model: process.env.OPENAI_MODEL ?? 'claude-sonnet-4-6',
   temperature: 0.8,
   max_tokens: 8000,
   role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',

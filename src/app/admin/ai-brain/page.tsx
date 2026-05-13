@@ -84,8 +84,11 @@ export default function AiBrainPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [testDetails, setTestDetails] = useState('Pernikahan Andi & Budi, 25 Desember 2025, Gedung Serbaguna, Jakarta')
-  const [testResult, setTestResult] = useState('')
+  const [testTemplateId, setTestTemplateId] = useState('elegant-gold')
+  const [testHtml, setTestHtml] = useState('')
+  const [testError, setTestError] = useState('')
   const [testing, setTesting] = useState(false)
+  const [previewMode, setPreviewMode] = useState<'phone' | 'raw'>('phone')
 
   useEffect(() => {
     fetch('/api/admin/ai-config')
@@ -141,24 +144,30 @@ export default function AiBrainPage() {
 
   async function testGenerate() {
     setTesting(true)
-    setTestResult('')
+    setTestHtml('')
+    setTestError('')
     try {
       const r = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ details: testDetails, templateId: 'elegant-gold' }),
+        body: JSON.stringify({ details: testDetails, templateId: testTemplateId }),
       })
       const d = await r.json()
       if (d.customHtml) {
-        setTestResult(d.customHtml.slice(0, 500) + '\n\n... [HTML terpotong — berhasil generate]')
+        setTestHtml(d.customHtml)
       } else {
-        setTestResult('Error: ' + (d.error ?? 'Tidak ada HTML'))
+        setTestError(d.error ?? 'Tidak ada HTML')
       }
     } catch (e) {
-      setTestResult('Error: ' + String(e))
+      setTestError(String(e))
     } finally {
       setTesting(false)
     }
+  }
+
+  function makePreviewSrc(html: string) {
+    const style = `<style>#cover{display:none!important}#content{display:block!important;opacity:1!important}</style>`
+    return html.includes('<head>') ? html.replace('<head>', '<head>' + style) : style + html
   }
 
   if (loading) {
@@ -248,27 +257,96 @@ export default function AiBrainPage() {
           </div>
         </div>
 
-        {/* Test generate */}
-        <div style={{ marginTop: 48, background: '#111827', borderRadius: 12, padding: 24, border: '1px solid #1f2937' }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16, marginTop: 0 }}>Test Generate</h2>
-          <p style={{ fontSize: 13, color: '#6b7280', marginTop: 0, marginBottom: 12 }}>Uji config yang aktif (dari DB) dengan prompt percobaan.</p>
-          <textarea
-            value={testDetails}
-            onChange={e => setTestDetails(e.target.value)}
-            rows={3}
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0f0f0f', color: '#f9fafb', fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', marginBottom: 12 }}
-          />
-          <button
-            onClick={testGenerate}
-            disabled={testing}
-            style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: testing ? '#374151' : '#059669', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}
-          >
-            {testing ? 'Generating...' : 'Test Generate'}
-          </button>
-          {testResult && (
-            <pre style={{ marginTop: 16, padding: 16, borderRadius: 8, background: '#0f0f0f', border: '1px solid #374151', fontSize: 12, color: '#d1d5db', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-              {testResult}
-            </pre>
+        {/* Test generate + sandbox */}
+        <div style={{ marginTop: 48, background: '#111827', borderRadius: 12, border: '1px solid #1f2937', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid #1f2937' }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, marginTop: 0 }}>Sandbox — Test Generate</h2>
+            <p style={{ fontSize: 13, color: '#6b7280', marginTop: 0, marginBottom: 0 }}>Uji config aktif dari DB. Hasilnya langsung tampil di preview.</p>
+          </div>
+
+          <div style={{ padding: 24 }}>
+            {/* Template picker */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              {[
+                { id: 'elegant-gold', label: '💍 Pernikahan' },
+                { id: 'birthday-fun', label: '🎂 Ulang Tahun' },
+              ].map(t => (
+                <button key={t.id} onClick={() => setTestTemplateId(t.id)} style={{
+                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+                  border: testTemplateId === t.id ? '2px solid #7c3aed' : '1px solid #374151',
+                  background: testTemplateId === t.id ? '#4c1d95' : 'transparent',
+                  color: testTemplateId === t.id ? '#fff' : '#9ca3af', cursor: 'pointer',
+                }}>{t.label}</button>
+              ))}
+            </div>
+
+            {/* Details input */}
+            <textarea
+              value={testDetails}
+              onChange={e => setTestDetails(e.target.value)}
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #374151', background: '#0f0f0f', color: '#f9fafb', fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', marginBottom: 12 }}
+            />
+
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                onClick={testGenerate}
+                disabled={testing}
+                style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: testing ? '#374151' : '#059669', color: '#fff', cursor: testing ? 'default' : 'pointer', fontWeight: 600, fontSize: 14 }}
+              >
+                {testing ? '⏳ Generating...' : '▶ Run Generate'}
+              </button>
+              {testHtml && (
+                <>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {(['phone', 'raw'] as const).map(m => (
+                      <button key={m} onClick={() => setPreviewMode(m)} style={{
+                        padding: '8px 14px', borderRadius: 8, fontSize: 12,
+                        border: previewMode === m ? '1px solid #7c3aed' : '1px solid #374151',
+                        background: previewMode === m ? '#4c1d95' : 'transparent',
+                        color: previewMode === m ? '#fff' : '#9ca3af', cursor: 'pointer',
+                      }}>{m === 'phone' ? '📱 Phone' : '</> HTML'}</button>
+                    ))}
+                  </div>
+                  <a
+                    href={`data:text/html;charset=utf-8,${encodeURIComponent(testHtml)}`}
+                    download="preview.html"
+                    style={{ fontSize: 12, color: '#6b7280', textDecoration: 'none' }}
+                  >
+                    ↓ Download HTML
+                  </a>
+                </>
+              )}
+              {testError && <span style={{ fontSize: 13, color: '#f87171' }}>Error: {testError}</span>}
+            </div>
+          </div>
+
+          {/* Preview area */}
+          {testHtml && (
+            <div style={{ borderTop: '1px solid #1f2937' }}>
+              {previewMode === 'phone' ? (
+                <div style={{ padding: 32, display: 'flex', justifyContent: 'center', background: '#0a0a0a' }}>
+                  {/* Phone frame */}
+                  <div style={{ width: 320, height: 640, border: '12px solid #222', borderRadius: 44, overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', background: '#000' }}>
+                    <div style={{ height: 24, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{ width: 60, height: 6, borderRadius: 3, background: '#333' }} />
+                    </div>
+                    <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                      <iframe
+                        srcDoc={makePreviewSrc(testHtml)}
+                        style={{ width: 390, height: 780, border: 'none', display: 'block', transform: 'scale(0.744)', transformOrigin: 'top left' }}
+                        sandbox="allow-scripts allow-popups allow-forms"
+                        title="preview"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <pre style={{ margin: 0, padding: 24, background: '#0a0a0a', fontSize: 11, color: '#6b7280', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 480, overflowY: 'auto' }}>
+                  {testHtml}
+                </pre>
+              )}
+            </div>
           )}
         </div>
       </div>

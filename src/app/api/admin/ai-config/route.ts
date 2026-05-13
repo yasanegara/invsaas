@@ -27,7 +27,7 @@ async function isSuperAdmin(): Promise<boolean> {
 }
 
 const DEFAULT_CONFIG: Record<string, string> = {
-  model: 'anthropic/claude-sonnet-4-6',
+  model: 'claude-sonnet-4-6',
   temperature: '0.8',
   max_tokens: '8000',
   role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',
