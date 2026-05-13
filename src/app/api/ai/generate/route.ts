@@ -125,7 +125,7 @@ async function getConfig(): Promise<typeof DEFAULTS> {
     return {
       model: db.model ?? DEFAULTS.model,
       temperature: db.temperature ? parseFloat(db.temperature) : DEFAULTS.temperature,
-      max_tokens: db.max_tokens ? parseInt(db.max_tokens) : DEFAULTS.max_tokens,
+      max_tokens: Math.min(db.max_tokens ? parseInt(db.max_tokens) : DEFAULTS.max_tokens, 8192),
       role: db.role ?? DEFAULTS.role,
       task: db.task ?? DEFAULTS.task,
       constraint_data: db.constraint_data ?? DEFAULTS.constraint_data,
