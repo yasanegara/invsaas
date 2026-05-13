@@ -9,6 +9,28 @@ import { TEMPLATE_META } from '@/templates/types'
 
 type Step = 'template' | 'details' | 'preview'
 
+const COLOR_PALETTES = [
+  { id: 'gold-cream',  label: 'Emas & Krem',  colors: ['#c9a94e', '#f5e6c8', '#6b4c0f'] },
+  { id: 'emerald',     label: 'Emerald',       colors: ['#065f46', '#a7f3d0', '#064e3b'] },
+  { id: 'navy-gold',   label: 'Navy & Gold',   colors: ['#1e3a5f', '#c9a94e', '#0f172a'] },
+  { id: 'maroon',      label: 'Maroon',        colors: ['#7f1d1d', '#fca5a5', '#450a0a'] },
+  { id: 'lavender',    label: 'Lavender',      colors: ['#4c1d95', '#ddd6fe', '#2e1065'] },
+  { id: 'rose-gold',   label: 'Rose Gold',     colors: ['#9d174d', '#fbcfe8', '#500724'] },
+] as const
+
+const BG_STYLES = [
+  { id: 'gradient', label: '🌈 Gradient berlapis' },
+  { id: 'geometric', label: '◆ Geometri' },
+  { id: 'floral', label: '🌸 Floral / Batik' },
+  { id: 'solid', label: '▪ Solid elegan' },
+] as const
+
+const ANIM_LEVELS = [
+  { id: 'subtle', label: '✦ Halus' },
+  { id: 'medium', label: '✦✦ Sedang' },
+  { id: 'rich',   label: '✦✦✦ Meriah' },
+] as const
+
 interface InvField { key: string; label: string; multiline?: boolean }
 interface InvSection { id: string; label: string; icon: string; fields: InvField[] }
 
@@ -96,6 +118,11 @@ export default function NewInvitationClient() {
   const [aiLoading, setAiLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Style pickers
+  const [colorPalette, setColorPalette] = useState<string>('gold-cream')
+  const [bgStyle, setBgStyle] = useState<string>('gradient')
+  const [animLevel, setAnimLevel] = useState<string>('medium')
+
   // Referensi gambar
   const [refImage, setRefImage] = useState<string | null>(null)
   const [refImageName, setRefImageName] = useState('')
@@ -144,10 +171,20 @@ export default function NewInvitationClient() {
     setAiLoading(true)
     setError('')
     try {
+      const palette = COLOR_PALETTES.find(p => p.id === colorPalette)
+      const bgLabel = BG_STYLES.find(b => b.id === bgStyle)?.label ?? ''
+      const animLabel = ANIM_LEVELS.find(a => a.id === animLevel)?.label ?? ''
+      const stylePrompt = [
+        palette ? `Palet warna: ${palette.label} (${palette.colors.join(', ')})` : '',
+        `Background: ${bgLabel}`,
+        `Animasi: ${animLabel}`,
+        aiTheme.trim(),
+      ].filter(Boolean).join('. ')
+
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: aiTheme.trim(), details: aiDetails.trim(), templateId, refImage }),
+        body: JSON.stringify({ theme: stylePrompt, details: aiDetails.trim(), templateId, refImage }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -336,11 +373,19 @@ export default function NewInvitationClient() {
               <div style={{ height: 20, background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <div style={{ width: 48, height: 5, borderRadius: 3, background: '#333' }} />
               </div>
-              <iframe
-                srcDoc={makePreviewSrc(generatedHtml)}
-                style={{ width: '100%', flex: 1, border: 'none', display: 'block' }}
-                sandbox="allow-scripts allow-popups allow-forms"
-              />
+              {/* Wrapper: clip ke ukuran phone, iframe di-scale dari 390px */}
+              <div style={{ width: 240, height: 480, overflow: 'hidden', flexShrink: 0 }}>
+                <iframe
+                  srcDoc={makePreviewSrc(generatedHtml)}
+                  style={{
+                    width: 390, height: 780,
+                    border: 'none', display: 'block',
+                    transform: 'scale(0.6154)',
+                    transformOrigin: 'top left',
+                  }}
+                  sandbox="allow-scripts allow-popups allow-forms"
+                />
+              </div>
             </div>
             <p style={{ fontSize: 11, color: '#bbb', marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
               Edit di kiri,<br />preview update otomatis
@@ -414,14 +459,67 @@ export default function NewInvitationClient() {
                 AI membuat satu halaman undangan digital yang unik. Setelah generate, kamu bisa edit per section.
               </p>
 
+              {/* Palet warna */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Palet warna</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {COLOR_PALETTES.map(p => (
+                    <button key={p.id} onClick={() => setColorPalette(p.id)} disabled={busy} style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
+                      borderRadius: 20, border: colorPalette === p.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                      background: colorPalette === p.id ? '#f5f5f5' : '#fff',
+                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                    }}>
+                      <span style={{ display: 'flex', gap: 2 }}>
+                        {p.colors.map((c, i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />)}
+                      </span>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Background style */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Background</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {BG_STYLES.map(b => (
+                    <button key={b.id} onClick={() => setBgStyle(b.id)} disabled={busy} style={{
+                      padding: '6px 12px', borderRadius: 20,
+                      border: bgStyle === b.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                      background: bgStyle === b.id ? '#1a1a1a' : '#fff',
+                      color: bgStyle === b.id ? '#fff' : '#555',
+                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                    }}>{b.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Animasi */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Animasi</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {ANIM_LEVELS.map(a => (
+                    <button key={a.id} onClick={() => setAnimLevel(a.id)} disabled={busy} style={{
+                      padding: '6px 14px', borderRadius: 20,
+                      border: animLevel === a.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                      background: animLevel === a.id ? '#1a1a1a' : '#fff',
+                      color: animLevel === a.id ? '#fff' : '#555',
+                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                    }}>{a.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tema bebas */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
-                  Tema & gaya visual <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
+                  Tema tambahan <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
                 </label>
                 <textarea
                   value={aiTheme}
                   onChange={e => setAiTheme(e.target.value)}
-                  placeholder="contoh: islami paper quilling, emerald green dan gold, motif bulan sabit dan lentera, kesan mewah 3D..."
+                  placeholder="contoh: islami paper quilling, motif bulan sabit dan lentera, kesan 3D..."
                   rows={2}
                   disabled={busy}
                   style={textareaStyle}

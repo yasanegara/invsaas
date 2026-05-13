@@ -48,7 +48,15 @@ OUTPUT: HANYA kode HTML lengkap dari <!DOCTYPE html> sampai </html>. ZERO penjel
 2. <script src="https://cdn.tailwindcss.com"></script>
 3. <link> Google Fonts 2–3 font sesuai tema (pilih dari: Cormorant+Garamond, Great+Vibes, Amiri, Cinzel, Dancing+Script, Playfair+Display, Raleway, Montserrat, Nunito, Pacifico, Lato)
 4. <script>tailwind.config={theme:{extend:{colors:{primary:"...",accent:"..."},fontFamily:{script:["..."],sans:["..."]}}}}</script>
-5. <style> berisi @keyframes: fadeInUp, float, shimmer, pulse-glow
+5. <style> berisi @keyframes: fadeInUp, float, shimmer, pulse-glow DAN semua class background custom
+
+━━━ ATURAN BACKGROUND — KRITIKAL ━━━
+⚠️ Tailwind CDN bisa gagal load. SEMUA background WAJIB pakai inline style, BUKAN class Tailwind.
+Gunakan style="..." langsung di setiap elemen:
+- Cover:   style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height:100vh"
+- Section: style="background: linear-gradient(180deg, #f8f4f0 0%, #ede8e3 100%); padding: 64px 24px"
+- Card:    style="background: rgba(255,255,255,0.15); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3)"
+Ornamen SVG: embed inline di HTML sebagai <svg>...</svg>, BUKAN src eksternal.
 
 ━━━ STRUKTUR HALAMAN WAJIB ━━━
 BAGIAN 1 — Cover (id="cover"):
