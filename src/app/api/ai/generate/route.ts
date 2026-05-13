@@ -18,7 +18,10 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
 }
 
 export async function POST(request: Request) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL ?? 'https://ai.sumopod.com/v1',
+  })
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -93,7 +96,7 @@ Footer: dark, hashtag`}
 TIDAK ADA penjelasan. HANYA HTML.`
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: process.env.OPENAI_MODEL ?? 'gemini/gemini-2.0-flash',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: 'Buat undangan digitalnya sekarang, sangat indah dan profesional.' },
