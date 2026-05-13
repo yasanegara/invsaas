@@ -5,11 +5,25 @@ import { prisma } from '@/lib/db'
 async function isSuperAdmin(): Promise<boolean> {
   const session = await auth()
   if (!session?.user?.id) return false
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  })
-  return user?.role === 'SUPERADMIN'
+
+  // Fallback: env var whitelist (bootstrap sebelum role ter-set di DB)
+  const superadminEmails = (process.env.SUPERADMIN_EMAIL ?? '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+  if (session.user.email && superadminEmails.includes(session.user.email.toLowerCase())) {
+    return true
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    })
+    return user?.role === 'SUPERADMIN'
+  } catch {
+    return false
+  }
 }
 
 const DEFAULT_CONFIG: Record<string, string> = {
