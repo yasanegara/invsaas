@@ -166,7 +166,7 @@ export default function NewInvitationClient() {
   const [generatedTitle, setGeneratedTitle] = useState('')
 
   const router = useRouter()
-  const isWedding = templateId ? TEMPLATE_META[templateId].category === 'Pernikahan' : true
+  const isWedding = templateId ? TEMPLATE_META[templateId].eventType === 'wedding' : true
   const busy = loading || aiLoading
   const canGenerate = aiDetails.trim().length > 0 && !busy
 

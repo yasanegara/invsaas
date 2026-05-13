@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import OpenAI from 'openai'
+import { TEMPLATE_META } from '@/templates/types'
+import type { TemplateId } from '@/templates/types'
 
 function extractTitle(html: string, details: string, isWedding: boolean): string {
   const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)
@@ -81,7 +83,66 @@ export async function POST(request: Request) {
   }
 
   const cfg = await getConfig()
-  const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(templateId)
+  const meta = TEMPLATE_META[templateId as TemplateId] ?? TEMPLATE_META['elegant-gold']
+  const eventType = meta.eventType
+  const isWedding = eventType === 'wedding'
+
+  const SECTION_IDS: Record<string, string> = {
+    wedding: `<section id="section-hero">   — foto/nama besar mempelai, tanggal, quote romantis
+<section id="section-pesan">  — pesan pembuka hangat, ayat Al-Qur'an/quote cinta
+<section id="section-akad">   — detail lengkap akad (waktu, venue, alamat)
+<section id="section-resepsi">— detail lengkap resepsi (waktu, venue, alamat)
+<section id="section-rsvp">   — tombol WhatsApp konfirmasi kehadiran
+<section id="section-footer"> — hashtag, ucapan terima kasih`,
+    birthday: `<section id="section-hero">   — nama, usia/ke berapa, tanggal
+<section id="section-pesan">  — pesan undangan hangat
+<section id="section-detail"> — waktu, tempat, dresscode
+<section id="section-rsvp">   — tombol konfirmasi
+<section id="section-footer"> — footer`,
+    ceremony: `<section id="section-hero">   — nama anak/bayi dan orang tua, tanggal
+<section id="section-pesan">  — pesan syukur, doa, ayat Al-Qur'an
+<section id="section-detail"> — waktu dan tempat acara
+<section id="section-rsvp">   — tombol konfirmasi kehadiran
+<section id="section-footer"> — footer dengan doa`,
+    graduation: `<section id="section-hero">   — nama wisudawan, program studi, universitas
+<section id="section-pesan">  — pesan syukur dan pencapaian
+<section id="section-detail"> — waktu, tempat, dresscode
+<section id="section-rsvp">   — tombol konfirmasi
+<section id="section-footer"> — footer`,
+  }
+
+  const DATA_EDIT_EXTRA: Record<string, string> = {
+    wedding: `section-akad:
+  <p data-edit="akad-time">       — waktu akad
+  <p data-edit="akad-venue">      — nama venue akad
+  <p data-edit="akad-address">    — alamat akad
+
+section-resepsi:
+  <p data-edit="resepsi-time">    — waktu resepsi
+  <p data-edit="resepsi-venue">   — nama venue resepsi
+  <p data-edit="resepsi-address"> — alamat resepsi`,
+    birthday: `section-detail:
+  <p data-edit="event-time">      — waktu acara
+  <p data-edit="event-venue">     — nama tempat
+  <p data-edit="event-address">   — alamat
+  <p data-edit="dresscode">       — dresscode`,
+    ceremony: `section-detail:
+  <p data-edit="event-time">      — waktu acara
+  <p data-edit="event-venue">     — nama tempat
+  <p data-edit="event-address">   — alamat`,
+    graduation: `section-detail:
+  <p data-edit="event-time">      — waktu acara
+  <p data-edit="event-venue">     — nama tempat/gedung
+  <p data-edit="event-address">   — alamat
+  <p data-edit="dresscode">       — dresscode`,
+  }
+
+  const EVENT_TYPE_LABEL: Record<string, string> = {
+    wedding: 'Pernikahan',
+    birthday: 'Ulang Tahun',
+    ceremony: 'Khitanan/Aqiqah',
+    graduation: 'Wisuda',
+  }
 
   const systemPrompt = `## ROLE
 ${cfg.role}
@@ -128,16 +189,7 @@ JavaScript WAJIB (inline di <body>):
 function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s ease';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s ease';i.style.opacity='1';},30);},800);}
 
 ━━━ SECTION IDs WAJIB ━━━
-${isWedding ? `<section id="section-hero">   — foto/nama besar mempelai, tanggal, quote romantis
-<section id="section-pesan">  — pesan pembuka hangat, ayat Al-Qur'an/quote cinta
-<section id="section-akad">   — detail lengkap akad (waktu, venue, alamat)
-<section id="section-resepsi">— detail lengkap resepsi (waktu, venue, alamat)
-<section id="section-rsvp">   — tombol WhatsApp konfirmasi kehadiran
-<section id="section-footer"> — hashtag, ucapan terima kasih` : `<section id="section-hero">   — nama, usia/ke berapa, tanggal
-<section id="section-pesan">  — pesan undangan hangat
-<section id="section-detail"> — waktu, tempat, dresscode
-<section id="section-rsvp">   — tombol konfirmasi
-<section id="section-footer"> — footer`}
+${SECTION_IDS[eventType]}
 
 ━━━ DATA-EDIT ATTRIBUTES — SEMUA WAJIB ADA ━━━
 Setiap teks yang bisa diedit HARUS punya data-edit. Satu elemen = satu nilai saja (jangan nested).
@@ -148,26 +200,14 @@ Cover:
   <button data-edit="cover-button" onclick="openInvitation()"> — teks tombol
 
 section-hero:
-  <h2 data-edit="hero-names">     — nama mempelai / ulang tahun
+  <h2 data-edit="hero-names">     — nama utama
   <p  data-edit="hero-tagline">   — tagline/quote singkat
 
 section-pesan:
   <p  data-edit="opening-message">— paragraf pesan pembuka
   <p  data-edit="quote">          — ayat/quote
 
-${isWedding ? `section-akad:
-  <p data-edit="akad-time">       — waktu akad
-  <p data-edit="akad-venue">      — nama venue akad
-  <p data-edit="akad-address">    — alamat akad
-
-section-resepsi:
-  <p data-edit="resepsi-time">    — waktu resepsi
-  <p data-edit="resepsi-venue">   — nama venue resepsi
-  <p data-edit="resepsi-address"> — alamat resepsi` : `section-detail:
-  <p data-edit="event-time">      — waktu acara
-  <p data-edit="event-venue">     — nama tempat
-  <p data-edit="event-address">   — alamat
-  <p data-edit="dresscode">       — dresscode`}
+${DATA_EDIT_EXTRA[eventType]}
 
 section-footer:
   <p data-edit="hashtag">         — hashtag
@@ -196,11 +236,11 @@ Jika ada URL musik latar, embed: <audio id="bgm" src="URL" loop></audio> dan bua
 ${cfg.visual_standard}
 
 ━━━ TEMA & GAYA ━━━
-${theme.trim() || `Elegan dan mewah, ${isWedding ? 'romantis dengan sentuhan gold dan krem' : 'meriah dan modern'}`}
+${theme.trim() || meta.themeHint}
 ${refImage ? '\n⚠️ User melampirkan GAMBAR REFERENSI. Tiru gaya visual, palet warna, nuansa, dan layout dari gambar tersebut. Jadikan sebagai inspirasi utama desain.' : ''}
 
 ━━━ DATA ACARA (GUNAKAN PERSIS INI) ━━━
-Tipe: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
+Tipe: ${EVENT_TYPE_LABEL[eventType]}
 ${details.trim()}
 
 OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
