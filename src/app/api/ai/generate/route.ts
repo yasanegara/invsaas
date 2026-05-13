@@ -172,6 +172,26 @@ section-resepsi:
 section-footer:
   <p data-edit="hashtag">         — hashtag
 
+━━━ KAMUS DESAIN ━━━
+Jika parameter gaya visual disebutkan, terapkan teknik CSS ini:
+- "Glassmorphism": background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2)
+- "Paper Quilling": box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3), inset -2px -2px 5px rgba(255,255,255,0.5); border untuk efek gulungan kertas 3D
+- "Neumorphism": box-shadow kembar gelap + terang pada background solid warna sama dengan elemen
+- "Royal Islamic": palette Navy Blue (#1e3a5f), Gold (#D4AF37), Cream (#FDFBF7)
+- "Cyberpunk Neon": background hitam (#000), aksen Neon Biru (#00f3ff) dan Neon Pink (#ff003c), text-shadow glowing
+- "Earth Tones": Terakota, Beige, Olive Green
+
+Jika tipografi disebutkan, gunakan Google Fonts yang sesuai dan set di tailwind.config fontFamily.
+
+Jika ornamen disebutkan:
+- "Bunga & Daun": SVG inline bunga, daun, dan ranting di setiap divider
+- "Geometri Islam": bintang 8 sudut, pola arabesk SVG
+- "Garis Minimal": garis tipis dengan titik/diamond di ujungnya
+- "Mandala": SVG lingkaran mandala di header/footer
+- "Ribbon & Pita": SVG pita melengkung di section borders
+
+Jika ada URL musik latar, embed: <audio id="bgm" src="URL" loop></audio> dan buat floating button play/pause kanan bawah layar.
+
 ━━━ STANDAR VISUAL TINGGI ━━━
 ${cfg.visual_standard}
 

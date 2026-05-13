@@ -31,6 +31,32 @@ const ANIM_LEVELS = [
   { id: 'rich',   label: '✦✦✦ Meriah' },
 ] as const
 
+const VISUAL_STYLES = [
+  { id: 'none',          label: 'Default' },
+  { id: 'glassmorphism', label: '🪟 Glassmorphism' },
+  { id: 'paper-quilling',label: '🌀 Paper Quilling' },
+  { id: 'neumorphism',   label: '⬜ Neumorphism' },
+  { id: 'royal-islamic', label: '☪️ Royal Islamic' },
+  { id: 'earth-tones',   label: '🍂 Earth Tones' },
+  { id: 'cyberpunk',     label: '⚡ Cyberpunk Neon' },
+] as const
+
+const TYPOGRAPHY_PAIRS = [
+  { id: 'script-sans',   label: 'Script + Sans',   fonts: 'Great Vibes + Raleway' },
+  { id: 'serif-sans',    label: 'Serif + Sans',     fonts: 'Cormorant Garamond + Montserrat' },
+  { id: 'display-serif', label: 'Display + Serif',  fonts: 'Cinzel + Playfair Display' },
+  { id: 'arabic-serif',  label: 'Arabic + Serif',   fonts: 'Amiri + Playfair Display' },
+  { id: 'playful',       label: 'Playful',          fonts: 'Pacifico + Nunito' },
+] as const
+
+const ORNAMENT_STYLES = [
+  { id: 'floral-svg',  label: '🌺 Bunga & Daun' },
+  { id: 'geometric-svg', label: '◆ Geometri Islam' },
+  { id: 'minimal-line', label: '— Garis Minimal' },
+  { id: 'mandala',     label: '✿ Mandala' },
+  { id: 'ribbon',      label: '🎀 Ribbon & Pita' },
+] as const
+
 interface InvField { key: string; label: string; multiline?: boolean }
 interface InvSection { id: string; label: string; icon: string; fields: InvField[] }
 
@@ -122,6 +148,11 @@ export default function NewInvitationClient() {
   const [colorPalette, setColorPalette] = useState<string>('gold-cream')
   const [bgStyle, setBgStyle] = useState<string>('gradient')
   const [animLevel, setAnimLevel] = useState<string>('medium')
+  const [visualStyle, setVisualStyle] = useState<string>('none')
+  const [typoPair, setTypoPair] = useState<string>('script-sans')
+  const [ornamentStyle, setOrnamentStyle] = useState<string>('floral-svg')
+  const [musicUrl, setMusicUrl] = useState<string>('')
+  const [socialMedia, setSocialMedia] = useState<string>('')
 
   // Referensi gambar
   const [refImage, setRefImage] = useState<string | null>(null)
@@ -174,10 +205,18 @@ export default function NewInvitationClient() {
       const palette = COLOR_PALETTES.find(p => p.id === colorPalette)
       const bgLabel = BG_STYLES.find(b => b.id === bgStyle)?.label ?? ''
       const animLabel = ANIM_LEVELS.find(a => a.id === animLevel)?.label ?? ''
+      const visualLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label ?? ''
+      const typo = TYPOGRAPHY_PAIRS.find(t => t.id === typoPair)
+      const ornamentLabel = ORNAMENT_STYLES.find(o => o.id === ornamentStyle)?.label ?? ''
       const stylePrompt = [
         palette ? `Palet warna: ${palette.label} (${palette.colors.join(', ')})` : '',
         `Background: ${bgLabel}`,
         `Animasi: ${animLabel}`,
+        visualStyle !== 'none' ? `Gaya visual: ${visualLabel}` : '',
+        typo ? `Tipografi: ${typo.fonts}` : '',
+        `Ornamen: ${ornamentLabel}`,
+        musicUrl.trim() ? `Musik latar: ${musicUrl.trim()} — embed audio dengan floating play/pause button` : '',
+        socialMedia.trim() ? `Tagar/medsos: ${socialMedia.trim()}` : '',
         aiTheme.trim(),
       ].filter(Boolean).join('. ')
 
@@ -508,6 +547,87 @@ export default function NewInvitationClient() {
                       cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
                     }}>{a.label}</button>
                   ))}
+                </div>
+              </div>
+
+              {/* Gaya visual */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Gaya visual</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {VISUAL_STYLES.map(v => (
+                    <button key={v.id} onClick={() => setVisualStyle(v.id)} disabled={busy} style={{
+                      padding: '6px 12px', borderRadius: 20,
+                      border: visualStyle === v.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                      background: visualStyle === v.id ? '#1a1a1a' : '#fff',
+                      color: visualStyle === v.id ? '#fff' : '#555',
+                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                    }}>{v.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tipografi */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Tipografi</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {TYPOGRAPHY_PAIRS.map(t => (
+                    <button key={t.id} onClick={() => setTypoPair(t.id)} disabled={busy} style={{
+                      padding: '6px 12px', borderRadius: 20,
+                      border: typoPair === t.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                      background: typoPair === t.id ? '#1a1a1a' : '#fff',
+                      color: typoPair === t.id ? '#fff' : '#555',
+                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                    }}>
+                      <span>{t.label}</span>
+                      <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.6 }}>{t.fonts}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ornamen */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Ornamen</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {ORNAMENT_STYLES.map(o => (
+                    <button key={o.id} onClick={() => setOrnamentStyle(o.id)} disabled={busy} style={{
+                      padding: '6px 12px', borderRadius: 20,
+                      border: ornamentStyle === o.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                      background: ornamentStyle === o.id ? '#1a1a1a' : '#fff',
+                      color: ornamentStyle === o.id ? '#fff' : '#555',
+                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+                    }}>{o.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Musik & Medsos — row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
+                    Musik latar <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={musicUrl}
+                    onChange={e => setMusicUrl(e.target.value)}
+                    placeholder="https://... (mp3/ogg)"
+                    disabled={busy}
+                    style={{ ...inputStyle, resize: undefined }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
+                    Medsos / Hashtag <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={socialMedia}
+                    onChange={e => setSocialMedia(e.target.value)}
+                    placeholder="@username atau #hashtag"
+                    disabled={busy}
+                    style={{ ...inputStyle, resize: undefined }}
+                  />
                 </div>
               </div>
 
