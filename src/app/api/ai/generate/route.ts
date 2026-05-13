@@ -281,7 +281,7 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'high' } }
 
-  const userText = '<!DOCTYPE html'
+  const userText = 'JANGAN gunakan tools, filesystem, function_calls, atau invoke apapun. Semua data sudah tersedia di system prompt. OUTPUT LANGSUNG kode HTML sekarang — mulai dari <!DOCTYPE html, akhiri dengan </html>. Tidak ada teks lain sebelum atau sesudah HTML.'
   const userContent: ContentPart[] = [
     { type: 'text', text: userText },
   ]
@@ -289,47 +289,74 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
     userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
   }
 
-  let raw = ''
-  try {
+  const FALLBACK_MODEL = 'gpt-4o'
+  const messages = [
+    { role: 'system' as const, content: systemPrompt },
+    { role: 'user' as const, content: (refImage ? userContent : userText) as string },
+  ]
+
+  async function callModel(model: string): Promise<string> {
     const completion = await openai.chat.completions.create({
-      model: cfg.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: refImage ? userContent : userText },
-        { role: 'assistant', content: '<!DOCTYPE html' },
-      ],
+      model,
+      messages,
       temperature: cfg.temperature,
       max_tokens: cfg.max_tokens,
     })
-    // Prefill '<!DOCTYPE html' dikirim sebagai assistant message — sambung ke completion
-    raw = '<!DOCTYPE html' + (completion.choices[0]?.message?.content ?? '')
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[ai/generate] API error:', msg)
-    return NextResponse.json({ error: `API error: ${msg}` }, { status: 502 })
+    return completion.choices[0]?.message?.content ?? ''
   }
 
-  console.log('[ai/generate] raw length:', raw.length, '| first 200:', raw.slice(0, 200))
+  function extractHtml(text: string): string | null {
+    const s = text.replace(/^```(?:html)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+    return (
+      s.match(/<!DOCTYPE html[\s\S]*<\/html>/i)?.[0] ??
+      s.match(/<html[\s\S]*<\/html>/i)?.[0] ??
+      (s.match(/<!DOCTYPE html/i) ? s + '\n</body></html>' : null) ??
+      (s.match(/<html/i) ? s + '\n</body></html>' : null) ??
+      null
+    )
+  }
 
-  // Strip markdown code fences jika AI membungkus output
-  const stripped = raw.replace(/^```(?:html)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  let raw = ''
+  let usedModel = cfg.model
+  try {
+    raw = await callModel(cfg.model)
+    console.log(`[ai/generate] model=${cfg.model} raw length=${raw.length} | first 100: ${raw.slice(0, 100)}`)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[ai/generate] primary model ${cfg.model} failed: ${msg} — switching to ${FALLBACK_MODEL}`)
+    try {
+      usedModel = FALLBACK_MODEL
+      raw = await callModel(FALLBACK_MODEL)
+      console.log(`[ai/generate] fallback model=${FALLBACK_MODEL} raw length=${raw.length}`)
+    } catch (err2: unknown) {
+      const msg2 = err2 instanceof Error ? err2.message : String(err2)
+      return NextResponse.json({ error: `API error: ${msg2}` }, { status: 502 })
+    }
+  }
 
-  // Coba match HTML lengkap, lalu fallback ke HTML yang mungkin terpotong
-  let customHtml: string | null =
-    stripped.match(/<!DOCTYPE html[\s\S]*<\/html>/i)?.[0] ??
-    stripped.match(/<html[\s\S]*<\/html>/i)?.[0] ??
-    // Truncated: ambil dari <!DOCTYPE html sampai akhir, tutup tag yang hilang
-    (stripped.match(/<!DOCTYPE html/i) ? stripped + '\n</body></html>' : null) ??
-    (stripped.match(/<html/i) ? stripped + '\n</body></html>' : null) ??
-    null
+  // Jika primary berhasil tapi output bukan HTML (misal: tool calls), coba fallback
+  let customHtml = extractHtml(raw)
+  if (!customHtml && usedModel === cfg.model && cfg.model !== FALLBACK_MODEL) {
+    console.warn(`[ai/generate] primary returned non-HTML (${raw.length} chars), switching to ${FALLBACK_MODEL}`)
+    try {
+      usedModel = FALLBACK_MODEL
+      raw = await callModel(FALLBACK_MODEL)
+      customHtml = extractHtml(raw)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return NextResponse.json({ error: `Fallback API error: ${msg}` }, { status: 502 })
+    }
+  }
 
   if (!customHtml) {
-    console.error('[ai/generate] no HTML in response. raw:', raw.slice(0, 500))
+    console.error(`[ai/generate] both models returned non-HTML. last raw: ${raw.slice(0, 300)}`)
     return NextResponse.json(
-      { error: `AI tidak menghasilkan HTML. Raw response (${raw.length} chars): ${raw.slice(0, 200)}` },
+      { error: `AI tidak menghasilkan HTML. Response (${raw.length} chars): ${raw.slice(0, 200)}` },
       { status: 500 }
     )
   }
+
+  console.log(`[ai/generate] success model=${usedModel} html length=${customHtml.length}`)
 
   return NextResponse.json({
     title: extractTitle(customHtml, details, isWedding),
