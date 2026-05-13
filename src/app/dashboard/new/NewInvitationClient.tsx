@@ -408,7 +408,7 @@ export default function NewInvitationClient() {
                 <span style={{
                   fontSize: 11, padding: '2px 7px', borderRadius: 10,
                   background: '#f0fdf4', color: '#166534', fontWeight: 500,
-                }}>Gemini 2.5 Pro</span>
+                }}>GPT-4o</span>
               </div>
               <p style={{ fontSize: 12, color: '#999', margin: '0 0 16px' }}>
                 AI membuat satu halaman undangan digital yang unik. Setelah generate, kamu bisa edit per section.
