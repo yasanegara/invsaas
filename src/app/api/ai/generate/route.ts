@@ -16,7 +16,7 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
 }
 
 const DEFAULTS = {
-  model: 'gpt-4o',
+  model: 'llama-3.3-70b-versatile',
   temperature: 0.8,
   max_tokens: 16000,
   role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',
@@ -144,8 +144,8 @@ async function getConfig(): Promise<typeof DEFAULTS> {
 
 export async function POST(request: Request) {
   const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL ?? 'https://ai.sumopod.com/v1',
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: 'https://api.groq.com/openai/v1',
   })
   const session = await auth()
   if (!session?.user?.id) {
@@ -318,7 +318,7 @@ Contoh: <h1 data-edit="hero-names">Nama Mempelai</h1>
 
 OUTPUT: HANYA kode HTML dari <!DOCTYPE html sampai </html>. Tanpa penjelasan, tanpa markdown.`
 
-  const FALLBACK_MODEL = 'gpt-4o'
+  const FALLBACK_MODEL = 'llama-3.1-8b-instant'
 
   async function callModel(model: string, sysprompt: string, usermsg: string | ContentPart[]): Promise<string> {
     const completion = await openai.chat.completions.create({
