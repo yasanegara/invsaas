@@ -44,10 +44,7 @@ export default function NewInvitationClient() {
       const data = await res.json()
       await createInvitation({
         title: data.title || title.trim() || aiPrompt.slice(0, 60),
-        header: data.header,
-        eventInfo: data.eventInfo,
-        mainText: data.mainText,
-        rsvp: data.rsvp,
+        customHtml: data.customHtml,
       })
     } catch {
       setError('AI gagal generate, coba lagi.')
@@ -61,6 +58,7 @@ export default function NewInvitationClient() {
     eventInfo?: object
     mainText?: object
     rsvp?: object
+    customHtml?: string
   }) {
     setLoading(true)
     setError('')

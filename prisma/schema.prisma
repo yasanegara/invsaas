@@ -67,6 +67,7 @@ model Invitation {
   rsvp            Json     @default("{}")
   footer          Json     @default("{}")
   theme           Json     @default("{}")
+  customHtml      String?
   enabledSections String[] @default(["header","eventInfo","mainText","rsvp","footer"])
   sectionOrder    String[] @default(["header","eventInfo","mainText","gallery","rsvp","footer"])
   status          String   @default("draft")

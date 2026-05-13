@@ -5,12 +5,14 @@ import type { InvitationContent } from '@/templates/types'
 import ElegantGoldTemplate from '@/templates/ElegantGold'
 import { ModernCleanTemplate, RomanticPinkTemplate, BirthdayTemplate } from '@/templates/OtherTemplates'
 
-async function getInvitation(slug: string): Promise<InvitationContent | null> {
-  const inv = await prisma.invitation.findUnique({
+async function getRecord(slug: string) {
+  return prisma.invitation.findUnique({
     where: { slug, status: 'published' },
   })
-  if (!inv) return null
+}
 
+function mapContent(inv: Awaited<ReturnType<typeof getRecord>>): InvitationContent | null {
+  if (!inv) return null
   const header = (inv.header ?? {}) as Record<string, any>
   const eventInfo = (inv.eventInfo ?? {}) as Record<string, any>
   const mainText = (inv.mainText ?? {}) as Record<string, any>
@@ -46,23 +48,35 @@ async function getInvitation(slug: string): Promise<InvitationContent | null> {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const inv = await getInvitation(slug)
+  const inv = await getRecord(slug)
   if (!inv) return { title: 'Undangan tidak ditemukan' }
 
-  const title = inv.names.length > 1
-    ? `Undangan ${inv.names.join(' & ')}`
-    : `Undangan ${inv.names[0]}`
+  // AI-generated: use the stored title
+  if (inv.customHtml) {
+    const title = inv.title ?? 'Undangan Digital'
+    return {
+      title,
+      openGraph: { title, type: 'website' },
+    }
+  }
+
+  const content = mapContent(inv)
+  if (!content) return { title: 'Undangan tidak ditemukan' }
+
+  const title = content.names.length > 1
+    ? `Undangan ${content.names.join(' & ')}`
+    : `Undangan ${content.names[0]}`
 
   return {
     title,
-    description: inv.openingMessage.slice(0, 120),
-    openGraph: { title, description: inv.openingMessage.slice(0, 120), type: 'website' },
+    description: content.openingMessage.slice(0, 120),
+    openGraph: { title, description: content.openingMessage.slice(0, 120), type: 'website' },
   }
 }
 
 export default async function InvitationPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const inv = await getInvitation(slug)
+  const inv = await getRecord(slug)
   if (!inv) notFound()
 
   // Increment view count (fire and forget)
@@ -71,9 +85,24 @@ export default async function InvitationPage({ params }: { params: Promise<{ slu
     data: { viewCount: { increment: 1 } },
   }).catch(() => {})
 
+  if (inv.customHtml) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50 }}>
+        <iframe
+          srcDoc={inv.customHtml as string}
+          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          sandbox="allow-same-origin allow-popups allow-forms"
+        />
+      </div>
+    )
+  }
+
+  const content = mapContent(inv)
+  if (!content) notFound()
+
   return (
     <main style={{ maxWidth: 480, margin: '0 auto' }}>
-      <TemplateRenderer inv={inv} />
+      <TemplateRenderer inv={content} />
     </main>
   )
 }

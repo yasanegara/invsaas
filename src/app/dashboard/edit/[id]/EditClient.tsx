@@ -15,6 +15,7 @@ interface Invitation {
   gallery: Record<string, any>
   rsvp: Record<string, any>
   theme: Record<string, any>
+  customHtml: string | null
   publishedUrl: string | null
   viewCount: number
 }
@@ -30,8 +31,41 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const [regenPrompt, setRegenPrompt] = useState('')
+  const [regenLoading, setRegenLoading] = useState(false)
+  const [currentHtml, setCurrentHtml] = useState(invitation.customHtml)
 
   const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(invitation.templateId)
+
+  async function regenerateAi() {
+    if (!regenPrompt.trim()) return
+    setRegenLoading(true)
+    setError('')
+    try {
+      const genRes = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: regenPrompt, templateId: invitation.templateId }),
+      })
+      if (!genRes.ok) throw new Error()
+      const data = await genRes.json()
+
+      const saveRes = await fetch(`/api/invitations/${invitation.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: data.title || title, customHtml: data.customHtml }),
+      })
+      if (!saveRes.ok) throw new Error()
+
+      setCurrentHtml(data.customHtml)
+      if (data.title) setTitle(data.title)
+      setRegenPrompt('')
+    } catch {
+      setError('Gagal regenerate, coba lagi.')
+    } finally {
+      setRegenLoading(false)
+    }
+  }
 
   async function save(newStatus?: string) {
     setSaving(true)
@@ -127,6 +161,59 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
       </div>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '28px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* AI Preview Section */}
+        {currentHtml && (
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #f0f0f0', background: '#fafafa', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 16 }}>✨</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#333' }}>Undangan AI</span>
+              <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 10, background: '#f0fdf4', color: '#166534', fontWeight: 500 }}>Groq</span>
+            </div>
+
+            {/* Preview iframe - scaled to fit the panel */}
+            <div style={{ height: 420, overflow: 'hidden', background: '#f7f7f5', borderBottom: '1px solid #f0f0f0' }}>
+              <iframe
+                srcDoc={currentHtml}
+                style={{ width: '143%', height: '143%', border: 'none', display: 'block', transformOrigin: 'top left', transform: 'scale(0.7)' }}
+                sandbox="allow-same-origin allow-popups allow-forms"
+              />
+            </div>
+
+            {/* Regenerate */}
+            <div style={{ padding: '16px 20px' }}>
+              <p style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+                Generate ulang dengan deskripsi baru:
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={regenPrompt}
+                  onChange={e => setRegenPrompt(e.target.value)}
+                  placeholder="Ceritakan ulang detail acaramu..."
+                  disabled={regenLoading}
+                  style={{
+                    flex: 1, padding: '9px 13px', borderRadius: 8,
+                    border: '1.5px solid #e8e8e8', fontSize: 13,
+                    outline: 'none', fontFamily: 'inherit', color: '#1a1a1a',
+                  }}
+                />
+                <button
+                  onClick={regenerateAi}
+                  disabled={!regenPrompt.trim() || regenLoading}
+                  style={{
+                    padding: '9px 16px', borderRadius: 8, border: 'none',
+                    background: regenPrompt.trim() && !regenLoading ? '#18181b' : '#e4e4e7',
+                    color: regenPrompt.trim() && !regenLoading ? '#fff' : '#a1a1aa',
+                    fontSize: 13, fontWeight: 500, cursor: regenPrompt.trim() && !regenLoading ? 'pointer' : 'default',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {regenLoading ? 'Generating...' : '✨ Regenerate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Judul */}
         <Section title="Identitas Undangan">

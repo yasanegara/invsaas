@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { title, templateId, header, eventInfo, mainText, rsvp } = await request.json()
+  const { title, templateId, header, eventInfo, mainText, rsvp, customHtml } = await request.json()
   if (!title?.trim() || !templateId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       rsvp: rsvp ?? {},
       footer: {},
       theme: {},
+      ...(customHtml ? { customHtml } : {}),
     },
   })
 

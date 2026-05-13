@@ -56,6 +56,7 @@ export async function PUT(
       theme: body.theme ?? existing.theme,
       status: body.status ?? existing.status,
       publishedUrl: body.publishedUrl ?? existing.publishedUrl,
+      ...(body.customHtml !== undefined ? { customHtml: body.customHtml } : {}),
     },
   })
 
