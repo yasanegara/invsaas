@@ -18,7 +18,7 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
 const DEFAULTS = {
   model: 'llama-3.3-70b-versatile',
   temperature: 0.8,
-  max_tokens: 16000,
+  max_tokens: 8192,
   role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',
   task: 'Buat satu halaman undangan digital lengkap dan sangat indah berdasarkan data acara yang diberikan. Halaman harus bisa langsung dibuka di browser tanpa dependensi eksternal selain Tailwind CDN dan Google Fonts.',
   constraint_data: `- GUNAKAN PERSIS data dari user — nama, tanggal, waktu, tempat, nomor — tidak boleh diubah satu karakter pun.
@@ -286,40 +286,6 @@ Start directly with <!DOCTYPE html — no explanation, no markdown fences.`
     userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
   }
 
-  // Prompt ringkas untuk fallback model (gpt-4o tidak perlu instruksi panjang)
-  const dataEditKeys = eventType === 'wedding'
-    ? 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, akad-time, akad-venue, akad-address, resepsi-time, resepsi-venue, resepsi-address, rsvp-button, hashtag'
-    : 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, event-time, event-venue, event-address, rsvp-button, hashtag'
-
-  const fallbackSystemPrompt = `Kamu adalah developer front-end spesialis undangan digital. Buat satu halaman HTML undangan ${EVENT_TYPE_LABEL[eventType]} yang sangat indah, lengkap, dan profesional.
-
-DATA ACARA (gunakan persis):
-${details.trim()}
-
-GAYA VISUAL:
-${theme.trim() || meta.themeHint}
-
-WAJIB TEKNIS:
-- Tailwind CSS CDN: <script src="https://cdn.tailwindcss.com"></script>
-- Google Fonts: 2 font (script + sans-serif), load via <link>
-- SEMUA background WAJIB pakai inline style="background:..." (bukan class Tailwind)
-- Ornamen: SVG inline di HTML, bukan URL eksternal
-- Mobile-first, responsif
-
-STRUKTUR WAJIB:
-1. <div id="cover"> — halaman pembuka dengan nama, tanggal, tombol "✉ Buka Undangan" onclick="openInvitation()"
-2. <div id="content" style="display:none;opacity:0"> — konten utama
-3. Section IDs di dalam content: ${SECTION_IDS[eventType].replace(/\n/g, ', ').replace(/<section id="([^"]+)">[^<]*/g, '$1')}
-4. JavaScript wajib: function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s ease';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s ease';i.style.opacity='1';},30);},800);}
-
-DATA-EDIT WAJIB (setiap teks konten harus ada atribut data-edit):
-${dataEditKeys}
-Contoh: <h1 data-edit="hero-names">Nama Mempelai</h1>
-
-OUTPUT: HANYA kode HTML dari <!DOCTYPE html sampai </html>. Tanpa penjelasan, tanpa markdown.`
-
-  const FALLBACK_MODEL = 'llama-3.1-8b-instant'
-
   async function callModel(model: string, sysprompt: string, usermsg: string | ContentPart[]): Promise<string> {
     const completion = await openai.chat.completions.create({
       model,
@@ -344,49 +310,25 @@ OUTPUT: HANYA kode HTML dari <!DOCTYPE html sampai </html>. Tanpa penjelasan, ta
     )
   }
 
-  const fallbackUserMsg = `Buat sekarang. Hasilkan undangan ${EVENT_TYPE_LABEL[eventType]} yang sangat indah dan lengkap sesuai instruksi di atas.`
-
   let raw = ''
-  let usedModel = cfg.model
   try {
     raw = await callModel(cfg.model, systemPrompt, refImage ? userContent : userText)
     console.log(`[ai/generate] model=${cfg.model} raw length=${raw.length} | first 100: ${raw.slice(0, 100)}`)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.warn(`[ai/generate] primary model ${cfg.model} failed: ${msg} — switching to ${FALLBACK_MODEL}`)
-    try {
-      usedModel = FALLBACK_MODEL
-      raw = await callModel(FALLBACK_MODEL, fallbackSystemPrompt, fallbackUserMsg)
-      console.log(`[ai/generate] fallback model=${FALLBACK_MODEL} raw length=${raw.length}`)
-    } catch (err2: unknown) {
-      const msg2 = err2 instanceof Error ? err2.message : String(err2)
-      return NextResponse.json({ error: `API error: ${msg2}` }, { status: 502 })
-    }
+    return NextResponse.json({ error: `API error: ${msg}` }, { status: 502 })
   }
 
-  // Jika primary berhasil tapi output bukan HTML (misal: tool calls), coba fallback
-  let customHtml = extractHtml(raw)
-  if (!customHtml && usedModel === cfg.model && cfg.model !== FALLBACK_MODEL) {
-    console.warn(`[ai/generate] primary returned non-HTML (${raw.length} chars), switching to ${FALLBACK_MODEL}`)
-    try {
-      usedModel = FALLBACK_MODEL
-      raw = await callModel(FALLBACK_MODEL, fallbackSystemPrompt, fallbackUserMsg)
-      customHtml = extractHtml(raw)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return NextResponse.json({ error: `Fallback API error: ${msg}` }, { status: 502 })
-    }
-  }
-
+  const customHtml = extractHtml(raw)
   if (!customHtml) {
-    console.error(`[ai/generate] both models returned non-HTML. last raw: ${raw.slice(0, 300)}`)
+    console.error(`[ai/generate] non-HTML response. raw: ${raw.slice(0, 300)}`)
     return NextResponse.json(
       { error: `AI tidak menghasilkan HTML. Response (${raw.length} chars): ${raw.slice(0, 200)}` },
       { status: 500 }
     )
   }
 
-  console.log(`[ai/generate] success model=${usedModel} html length=${customHtml.length}`)
+  console.log(`[ai/generate] success model=${cfg.model} html length=${customHtml.length}`)
 
   return NextResponse.json({
     title: extractTitle(customHtml, details, isWedding),
