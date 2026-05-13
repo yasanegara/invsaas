@@ -96,6 +96,10 @@ export default function NewInvitationClient() {
   const [aiLoading, setAiLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Referensi gambar
+  const [refImage, setRefImage] = useState<string | null>(null)
+  const [refImageName, setRefImageName] = useState('')
+
   // Preview/edit step
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null)
   const [sections, setSections] = useState<InvSection[]>([])
@@ -119,6 +123,22 @@ export default function NewInvitationClient() {
     await createInvitation({ title: title.trim() })
   }
 
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) {
+      setError('Gambar terlalu besar, maksimal 4MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = ev => {
+      setRefImage(ev.target?.result as string)
+      setRefImageName(file.name)
+      setError('')
+    }
+    reader.readAsDataURL(file)
+  }
+
   async function handleAiGenerate() {
     if (!aiDetails.trim() || !templateId) return
     setAiLoading(true)
@@ -127,7 +147,7 @@ export default function NewInvitationClient() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: aiTheme.trim(), details: aiDetails.trim(), templateId }),
+        body: JSON.stringify({ theme: aiTheme.trim(), details: aiDetails.trim(), templateId, refImage }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -406,6 +426,29 @@ export default function NewInvitationClient() {
                   disabled={busy}
                   style={textareaStyle}
                 />
+              </div>
+
+              {/* Upload referensi */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
+                  Referensi desain <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
+                </label>
+                {refImage ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d1fae5', background: '#f0fdf4' }}>
+                    <img src={refImage} alt="ref" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 500, color: '#166534', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{refImageName}</p>
+                      <p style={{ fontSize: 11, color: '#6b7280', margin: 0 }}>AI akan mencontoh gaya visual gambar ini</p>
+                    </div>
+                    <button onClick={() => { setRefImage(null); setRefImageName('') }} style={{ fontSize: 18, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1, padding: 0, flexShrink: 0 }}>×</button>
+                  </div>
+                ) : (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 8, border: '1.5px dashed #d1d5db', cursor: busy ? 'default' : 'pointer', background: '#fafafa' }}>
+                    <span style={{ fontSize: 18 }}>🖼️</span>
+                    <span style={{ fontSize: 12, color: '#6b7280' }}>Upload gambar referensi (JPG/PNG, maks 4MB)</span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageUpload} disabled={busy} style={{ display: 'none' }} />
+                  </label>
+                )}
               </div>
 
               <div style={{ marginBottom: 16 }}>

@@ -26,6 +26,7 @@ export async function POST(request: Request) {
   const theme: string = body.theme ?? ''
   const details: string = body.details ?? body.prompt ?? ''
   const templateId: string = body.templateId ?? 'elegant-gold'
+  const refImage: string | null = body.refImage ?? null
 
   if (!details.trim()) {
     return NextResponse.json({ error: 'Detail acara wajib diisi' }, { status: 400 })
@@ -121,6 +122,7 @@ section-footer:
 
 ━━━ TEMA & GAYA ━━━
 ${theme.trim() || `Elegan dan mewah, ${isWedding ? 'romantis dengan sentuhan gold dan krem' : 'meriah dan modern'}`}
+${refImage ? '\n⚠️ User melampirkan GAMBAR REFERENSI. Tiru gaya visual, palet warna, nuansa, dan layout dari gambar tersebut. Jadikan sebagai inspirasi utama desain.' : ''}
 
 ━━━ DATA ACARA (GUNAKAN PERSIS INI) ━━━
 Tipe: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
@@ -128,13 +130,24 @@ ${details.trim()}
 
 OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
 
+  type ContentPart =
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string; detail: 'high' } }
+
+  const userContent: ContentPart[] = [
+    { type: 'text', text: 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
+  ]
+  if (refImage) {
+    userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
+  }
+
   let raw = ''
   try {
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL ?? 'gemini/gemini-2.5-pro',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
+        { role: 'user', content: refImage ? userContent : 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
       ],
       temperature: 0.8,
       max_tokens: 8000,
