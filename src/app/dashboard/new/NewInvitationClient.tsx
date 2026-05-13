@@ -268,9 +268,10 @@ export default function NewInvitationClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ theme: stylePrompt, details: aiDetails.trim(), templateId, refImage }),
       })
-      if (!res.ok) throw new Error()
       const data = await res.json()
-      if (!data.customHtml) throw new Error()
+      if (!res.ok || !data.customHtml) {
+        throw new Error(data.error || `HTTP ${res.status}`)
+      }
 
       const { sections: detected, values } = extractSections(data.customHtml)
       setGeneratedHtml(data.customHtml)
@@ -279,8 +280,8 @@ export default function NewInvitationClient() {
       setActiveSection(detected[0]?.id ?? null)
       setGeneratedTitle(data.title || aiDetails.slice(0, 60))
       setStep('preview')
-    } catch {
-      setError('AI gagal generate, coba lagi.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'AI gagal generate, coba lagi.')
     } finally {
       setAiLoading(false)
     }

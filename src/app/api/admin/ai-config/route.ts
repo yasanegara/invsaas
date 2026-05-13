@@ -29,7 +29,7 @@ async function isSuperAdmin(): Promise<boolean> {
 const DEFAULT_CONFIG: Record<string, string> = {
   model: 'claude-sonnet-4-6',
   temperature: '0.8',
-  max_tokens: '8000',
+  max_tokens: '16000',
   role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',
   task: 'Buat satu halaman undangan digital lengkap dan sangat indah berdasarkan data acara yang diberikan. Halaman harus bisa langsung dibuka di browser tanpa dependensi eksternal selain Tailwind CDN dan Google Fonts.',
   constraint_data: `- GUNAKAN PERSIS data dari user — nama, tanggal, waktu, tempat, nomor — tidak boleh diubah satu karakter pun.
