@@ -40,7 +40,9 @@ OUTPUT: HANYA kode HTML lengkap dari <!DOCTYPE html> sampai </html>. ZERO penjel
 
 ━━━ ATURAN DATA — WAJIB DIIKUTI ━━━
 ⚠️ GUNAKAN PERSIS data dari user. JANGAN ubah, tambah, atau karang nama/tanggal/tempat/nomor apapun.
-⚠️ Jika data tidak disebutkan (misal: alamat lengkap), tulis placeholder singkat seperti "[Alamat venue]".
+⚠️ Jika data tidak disebutkan, tulis placeholder: [Nama], [Tanggal], [Venue], [Alamat], [Nomor RSVP] — JANGAN isi dengan nilai karangan.
+⚠️ NOMOR TELEPON/WHATSAPP: HANYA tampilkan jika user memberikan nomor eksplisit. Jika tidak ada, tulis "[Hubungi kami]" — JANGAN buat nomor palsu.
+⚠️ AYAT AL-QUR'AN: Hanya gunakan ayat yang sangat umum dan dikenal (misal: QS Ar-Rum 21, QS An-Nisa 1). Jika tidak yakin teks arabnya benar, gunakan quote romantis umum saja — JANGAN mengarang teks arab atau terjemahan palsu.
 
 ━━━ HEAD WAJIB ━━━
 <head> harus berisi SEMUA ini:
