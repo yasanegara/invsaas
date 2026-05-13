@@ -74,6 +74,38 @@ const FIELDS = [
     hint: 'Panduan kualitas visual: gradient, ornamen, animasi, tombol, warna.',
     rows: 8,
   },
+  {
+    key: 'prompt_head_rules',
+    label: 'HEAD & Background Rules',
+    type: 'textarea',
+    placeholder: '━━━ HEAD WAJIB ━━━\n<head> harus berisi...',
+    hint: 'Instruksi isi <head> (Tailwind CDN, Google Fonts, tailwind.config) + aturan inline style background.',
+    rows: 12,
+  },
+  {
+    key: 'prompt_page_structure',
+    label: 'Struktur Halaman (Cover + Konten + JS)',
+    type: 'textarea',
+    placeholder: '━━━ STRUKTUR HALAMAN WAJIB ━━━\nBAGIAN 1 — Cover (id="cover")...',
+    hint: 'Instruksi cover, id="content", JavaScript openInvitation(). Edit di sini untuk ubah animasi atau struktur dasar.',
+    rows: 14,
+  },
+  {
+    key: 'prompt_data_edit',
+    label: 'Data-Edit Requirements (Common)',
+    type: 'textarea',
+    placeholder: '━━━ DATA-EDIT ATTRIBUTES — WAJIB KRITIS ━━━\n⚠️ SETIAP teks...',
+    hint: 'Instruksi wajib data-edit + contoh BENAR/SALAH + daftar cover/hero/pesan. Bagian event-specific (akad, resepsi, dll) diinjeksi otomatis per tipe template.',
+    rows: 20,
+  },
+  {
+    key: 'prompt_kamus_desain',
+    label: 'Kamus Desain',
+    type: 'textarea',
+    placeholder: '━━━ KAMUS DESAIN ━━━\nJika parameter gaya visual disebutkan...',
+    hint: 'Peta gaya visual → CSS teknik. Tambah gaya baru di sini agar AI langsung bisa menerapkannya.',
+    rows: 16,
+  },
 ]
 
 export default function AiBrainPage() {
