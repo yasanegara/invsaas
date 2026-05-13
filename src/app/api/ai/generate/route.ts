@@ -152,7 +152,7 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
   let raw = ''
   try {
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? 'gpt-4o',
+      model: process.env.OPENAI_MODEL ?? 'anthropic/claude-sonnet-4-6',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: refImage ? userContent : 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
