@@ -25,8 +25,6 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-
-  // Support both old format (prompt) and new format (theme + details)
   const theme: string = body.theme ?? ''
   const details: string = body.details ?? body.prompt ?? ''
   const templateId: string = body.templateId ?? 'elegant-gold'
@@ -37,52 +35,83 @@ export async function POST(request: Request) {
 
   const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(templateId)
 
-  const themeSection = theme.trim()
-    ? `=== TEMA & GAYA VISUAL (PRIORITAS UTAMA — ikuti sepenuhnya) ===
+  const themeBlock = theme.trim()
+    ? `=== TEMA & GAYA VISUAL (WAJIB DIWUJUDKAN SEPENUHNYA) ===
 ${theme.trim()}
 
 `
     : ''
 
-  const systemPrompt = `Kamu adalah web designer Indonesia ahli undangan digital. Buat satu halaman HTML undangan yang LENGKAP, CANTIK, dan UNIK.
+  const systemPrompt = `Kamu adalah web developer Indonesia senior yang ahli membuat undangan digital interaktif berkualitas tinggi.
 
-=== ATURAN WAJIB ===
-- Output: HANYA kode HTML dari <!DOCTYPE html> hingga </html>, TIDAK ADA teks lain
-- CSS: semua dalam <style> di <head>, TIDAK ADA external CSS/fonts/CDN
-- JavaScript: TIDAK ADA
-- Layout: mobile-first, max-width 480px, margin 0 auto, min-height 100vh
-- Konten: masukkan SEMUA detail acara dari input user
-- Jika ada nomor WhatsApp: buat tombol RSVP dengan href="https://wa.me/[nomor]"
+=== ATURAN TEKNIS ===
+- Output: HANYA HTML lengkap dari <!DOCTYPE html> hingga </html>, tidak ada teks lain
+- Google Fonts: BOLEH pakai via <link rel="stylesheet" href="https://fonts.googleapis.com/css2?...">
+- JavaScript: BOLEH dan DIANJURKAN untuk animasi dan interaktivitas
+- CSS: dalam <style> tag
+- Layout: mobile-first, max-width 480px, margin 0 auto, body tidak boleh overflow horizontal
 
-${themeSection}=== DETAIL ACARA YANG HARUS DITAMPILKAN ===
-Tipe: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
+=== POLA WAJIB: COVER PAGE + ISI UNDANGAN ===
+Halaman HARUS memiliki dua bagian:
+
+BAGIAN 1 — Cover (id="cover"):
+- Tampil pertama kali saat halaman dibuka
+- Tampilkan nama, tanggal, dan dekorasi visual sesuai tema
+- Ada tombol "Buka Undangan" yang mengeksekusi fungsi openInvitation()
+- Desain yang SANGAT CANTIK dan berkesan
+
+BAGIAN 2 — Isi (id="content", style="display:none; opacity:0"):
+- Tersembunyi di awal, muncul dengan animasi setelah tombol diklik
+- Berisi SEMUA informasi acara
+
+JavaScript yang WAJIB ada (minimal ini, boleh tambahkan lebih):
+<script>
+function openInvitation() {
+  var cover = document.getElementById('cover');
+  cover.style.transition = 'opacity 0.8s ease';
+  cover.style.opacity = '0';
+  setTimeout(function() {
+    cover.style.display = 'none';
+    var content = document.getElementById('content');
+    content.style.display = 'block';
+    setTimeout(function() {
+      content.style.transition = 'opacity 0.8s ease';
+      content.style.opacity = '1';
+    }, 30);
+  }, 800);
+}
+</script>
+
+${themeBlock}=== DETAIL ACARA (WAJIB DITAMPILKAN SEMUA) ===
+Tipe acara: ${isWedding ? 'Pernikahan' : 'Ulang Tahun'}
 ${details.trim()}
 
-=== PANDUAN DESAIN ===
-${theme.trim() ? `Wujudkan tema visual yang diminta user dengan CSS yang kreatif. Gunakan:
-- Gradien, pola, dan dekorasi CSS murni untuk efek visual
-- Box-shadow bertingkat untuk kesan kedalaman/3D
-- Border-radius dan clip-path untuk bentuk dekoratif
-- Pseudo-element ::before/::after untuk ornamen
-- CSS pattern untuk tekstur (repeating-linear-gradient, radial-gradient)
-- Animasi CSS @keyframes yang halus (opsional, maks 1-2 animasi)` : `Buat desain elegan yang sesuai tipe acara (${isWedding ? 'pernikahan' : 'ulang tahun'}):
-- Pilih palet warna yang harmonis dan mewah
-- Tipografi yang terbaca dengan baik di mobile
-- Hierarki visual yang jelas: hero → pesan → detail → RSVP`}
-
-=== STRUKTUR HALAMAN ===
-${isWedding ? `1. Hero: nama kedua mempelai (besar, menonjol), tanggal, tagline romantis
-2. Pesan pembuka 2-3 kalimat (formal, hangat, sertakan Bismillah jika temanya islami)
-3. Detail akad: ikon/dekorasi, waktu akad
-4. Detail resepsi: waktu resepsi, nama venue, alamat
-5. Quote cinta (jika ada dalam detail)
-6. Tombol RSVP besar dan menonjol
-7. Footer: hashtag (jika ada)` : `1. Hero: nama, tagline ulang tahun, tanggal
+=== STRUKTUR BAGIAN ISI (dalam id="content") ===
+${isWedding ? `1. Hero: Bismillah (Arab), nama kedua mempelai dalam font kaligrafi/script, tanggal
+2. Pesan pembuka: 2-3 kalimat formal dan hangat, ayat Al-Quran tentang pernikahan (jika tema islami)
+3. Detail Akad: waktu, tempat
+4. Detail Resepsi: waktu, tempat, alamat lengkap
+5. Tombol RSVP (link WhatsApp jika ada nomor: https://wa.me/[nomor tanpa +])
+6. Footer: hashtag (jika ada), nama pasangan dalam font script` : `1. Hero: nama dalam font besar/bold, usia, tanggal, tagline
 2. Row dekorasi pesta
-3. Pesan undangan 2-3 kalimat (ceria, hangat)
-4. Detail: tanggal+waktu, tempat+alamat, dresscode (jika ada)
-5. Tombol RSVP besar
+3. Pesan undangan: ceria dan hangat
+4. Info acara: tanggal + waktu, tempat + alamat, dresscode (jika ada)
+5. Tombol RSVP / konfirmasi kehadiran
 6. Footer: hashtag (jika ada)`}
+
+=== PANDUAN KUALITAS VISUAL ===
+${theme.trim()
+  ? `Wujudkan tema visual sepenuhnya menggunakan CSS yang kreatif:
+- Gunakan CSS gradient, pattern, box-shadow berlapis untuk efek tema
+- Pseudo-element ::before/::after untuk ornamen dekoratif
+- SVG inline untuk elemen artistik (bulan sabit, lentera, bunga, dll)
+- @keyframes untuk animasi yang halus dan elegan
+- Pilih Google Fonts yang sesuai tema (islami: Amiri, Cinzel; romantis: Cormorant Garamond, Great Vibes; modern: Playfair Display)`
+  : `Buat desain yang elegan dan profesional:
+- Palet warna yang harmonis dan sesuai tipe acara
+- Tipografi yang bersih dan mudah dibaca
+- Hierarki visual yang jelas
+- Animasi CSS yang halus`}
 
 TIDAK ADA penjelasan. HANYA HTML.`
 
@@ -90,10 +119,10 @@ TIDAK ADA penjelasan. HANYA HTML.`
     model: 'llama-3.3-70b-versatile',
     messages: [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Buat undangan digitalnya sekarang.` },
+      { role: 'user', content: 'Buat undangan digitalnya sekarang.' },
     ],
-    temperature: 0.75,
-    max_tokens: 4096,
+    temperature: 0.72,
+    max_tokens: 6000,
   })
 
   const raw = completion.choices[0]?.message?.content ?? ''

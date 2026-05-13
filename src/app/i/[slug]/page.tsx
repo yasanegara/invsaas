@@ -91,7 +91,7 @@ export default async function InvitationPage({ params }: { params: Promise<{ slu
         <iframe
           srcDoc={inv.customHtml as string}
           style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-          sandbox="allow-same-origin allow-popups allow-forms"
+          sandbox="allow-scripts allow-popups allow-forms"
         />
       </div>
     )

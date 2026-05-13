@@ -182,7 +182,7 @@ export default function EditClient({ invitation }: { invitation: Invitation }) {
               <iframe
                 srcDoc={currentHtml}
                 style={{ width: '143%', height: '143%', border: 'none', display: 'block', transformOrigin: 'top left', transform: 'scale(0.7)' }}
-                sandbox="allow-same-origin allow-popups allow-forms"
+                sandbox="allow-scripts allow-popups allow-forms"
               />
             </div>
 
