@@ -128,22 +128,36 @@ ${details.trim()}
 
 OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
 
-  const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL ?? 'gemini/gemini-1.5-pro',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
-    ],
-    temperature: 0.8,
-    max_tokens: 8000,
-  })
+  let raw = ''
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL ?? 'gemini/gemini-2.5-pro',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
+      ],
+      temperature: 0.8,
+      max_tokens: 8000,
+    })
+    raw = completion.choices[0]?.message?.content ?? ''
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[ai/generate] API error:', msg)
+    return NextResponse.json({ error: `API error: ${msg}` }, { status: 502 })
+  }
 
-  const raw = completion.choices[0]?.message?.content ?? ''
-  const htmlMatch = raw.match(/<!DOCTYPE html[\s\S]*<\/html>/i)
+  console.log('[ai/generate] raw length:', raw.length, '| first 200:', raw.slice(0, 200))
+
+  // Terima <!DOCTYPE html> atau <html> langsung
+  const htmlMatch = raw.match(/<!DOCTYPE html[\s\S]*<\/html>|<html[\s\S]*<\/html>/i)
   const customHtml = htmlMatch?.[0] ?? null
 
   if (!customHtml) {
-    return NextResponse.json({ error: 'AI gagal generate, coba lagi.' }, { status: 500 })
+    console.error('[ai/generate] no HTML in response. raw:', raw.slice(0, 500))
+    return NextResponse.json(
+      { error: 'AI tidak menghasilkan HTML. Coba generate ulang.' },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({
