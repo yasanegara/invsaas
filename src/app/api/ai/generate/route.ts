@@ -16,7 +16,7 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
 }
 
 const DEFAULTS = {
-  model: 'claude-sonnet-4-6',
+  model: 'gpt-4o',
   temperature: 0.8,
   max_tokens: 16000,
   role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',
@@ -224,64 +224,61 @@ section-resepsi:
     graduation: 'Wisuda',
   }
 
-  const systemPrompt = `⚠️ INSTRUKSI KRITIKAL: Kamu TIDAK memiliki akses ke tools, fungsi, filesystem, atau MCP apapun. JANGAN memanggil function_calls, invoke, atau tools dalam bentuk apapun. Tugas kamu hanya SATU: langsung tulis kode HTML sebagai output. Mulai output dengan <!DOCTYPE html dan akhiri dengan </html>. Tidak ada teks lain.
+  const dataEditList = eventType === 'wedding'
+    ? 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, akad-time, akad-venue, akad-address, resepsi-time, resepsi-venue, resepsi-address, rsvp-button, hashtag'
+    : 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, event-time, event-venue, event-address, rsvp-button, hashtag'
 
-## ROLE
-${cfg.role}
+  const systemPrompt = `You are a senior front-end developer specializing in beautiful Indonesian digital invitations. Generate a complete, gorgeous HTML invitation page.
 
-## TASK
-${cfg.task}
-
-## CONSTRAINTS
-### Data & Akurasi
-${cfg.constraint_data}
-### Output
-${cfg.constraint_output}
-### Teknis
-${cfg.constraint_technical}
-
-${cfg.prompt_head_rules}
-
-${cfg.prompt_page_structure}
-
-━━━ SECTION IDs WAJIB ━━━
-${SECTION_IDS[eventType]}
-
-${cfg.prompt_data_edit}
-
-${DATA_EDIT_EXTRA[eventType]}
-
-section-rsvp:
-  <p data-edit="rsvp-button">     — teks tombol RSVP
-
-section-footer:
-  <p data-edit="hashtag">         — hashtag / nama footer
-
-ATURAN data-edit:
-- Satu data-edit per elemen — tidak boleh ada data-edit di dalam elemen yang sudah ber-data-edit
-- Nilai data-edit harus PERSIS seperti daftar di atas (lowercase, kebab-case)
-- Isi elemen = teks saja, bukan HTML nested
-
-${cfg.prompt_kamus_desain}
-
-━━━ STANDAR VISUAL TINGGI ━━━
-${cfg.visual_standard}
-
-━━━ TEMA & GAYA — WAJIB DIIKUTI PERSIS ━━━
-${theme.trim() || meta.themeHint}
-${refImage ? '\n⚠️ User melampirkan GAMBAR REFERENSI. Tiru gaya visual, palet warna, nuansa, dan layout dari gambar tersebut. Jadikan sebagai inspirasi utama desain.' : ''}
-
-━━━ DATA ACARA (GUNAKAN PERSIS INI) ━━━
-Tipe: ${EVENT_TYPE_LABEL[eventType]}
+## EVENT DATA (use EXACTLY as given, do not change names/dates/venues)
+Type: ${EVENT_TYPE_LABEL[eventType]}
 ${details.trim()}
 
-OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
+## STYLE & THEME
+${theme.trim() || meta.themeHint}${refImage ? '\nUser provided a REFERENCE IMAGE — match its visual style, color palette, and mood closely.' : ''}
+
+## REQUIRED TECHNICAL STRUCTURE
+1. DOCTYPE html, UTF-8 meta, viewport meta
+2. Tailwind CSS CDN: <script src="https://cdn.tailwindcss.com"></script>
+3. Google Fonts: load 2 fonts (decorative/script + clean sans-serif) via <link>
+4. tailwind.config script with primary/accent colors and fontFamily matching the theme
+5. ALL backgrounds MUST use inline style="background:..." — Tailwind CDN may fail to load background utilities
+6. All SVG ornaments must be inline <svg> — no external URLs
+
+## REQUIRED PAGE STRUCTURE
+Part 1 — Cover: <div id="cover" style="min-height:100vh; background:...; display:flex; align-items:center; justify-content:center">
+  - Names in large decorative font, date, decorative divider
+  - Big button: <button data-edit="cover-button" onclick="openInvitation()">✉ Buka Undangan</button>
+
+Part 2 — Content: <div id="content" style="display:none; opacity:0">
+  Sections: ${SECTION_IDS[eventType].replace(/\n/g, ' | ')}
+
+JavaScript (inline in body):
+function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s ease';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s ease';i.style.opacity='1';},30);},800);}
+
+## REQUIRED data-edit ATTRIBUTES
+Every visible text element MUST have a data-edit attribute. Example:
+<h1 data-edit="hero-names" class="...">Nama Mempelai</h1>
+<p data-edit="hero-tagline" class="...">Tagline</p>
+
+Required keys: ${dataEditList}
+${DATA_EDIT_EXTRA[eventType]}
+
+## VISUAL QUALITY STANDARDS
+${cfg.visual_standard}
+
+## CONTENT CONSTRAINTS
+${cfg.constraint_data}
+
+## OUTPUT FORMAT
+${cfg.constraint_output}
+Start directly with <!DOCTYPE html — no explanation, no markdown fences.`
 
   type ContentPart =
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'high' } }
 
-  const userText = 'JANGAN gunakan tools, filesystem, function_calls, atau invoke apapun. Semua data sudah tersedia di system prompt. OUTPUT LANGSUNG kode HTML sekarang — mulai dari <!DOCTYPE html, akhiri dengan </html>. Tidak ada teks lain sebelum atau sesudah HTML.'
+  const userText = `Generate the ${EVENT_TYPE_LABEL[eventType]} invitation HTML now. Make it stunning, complete, and professional. Output only HTML starting with <!DOCTYPE html.`
   const userContent: ContentPart[] = [
     { type: 'text', text: userText },
   ]
