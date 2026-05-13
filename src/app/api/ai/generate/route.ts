@@ -163,7 +163,7 @@ export async function POST(request: Request) {
   }
 
   const cfg = await getConfig()
-  const meta = TEMPLATE_META[templateId as TemplateId] ?? TEMPLATE_META['elegant-gold']
+  const meta = TEMPLATE_META[templateId as TemplateId] ?? TEMPLATE_META['paper-quilling-islami']
   const eventType = meta.eventType
   const isWedding = eventType === 'wedding'
 
@@ -232,7 +232,8 @@ OUTPUT: Mulai langsung <!DOCTYPE html hingga </html>. Tanpa markdown, tanpa penj
       model,
       messages: [
         { role: 'system', content: sysprompt },
-        { role: 'user', content: usermsg as string },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { role: 'user', content: usermsg as any },
       ],
       temperature: cfg.temperature,
       max_tokens: cfg.max_tokens,

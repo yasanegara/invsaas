@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db'
 import type { Metadata } from 'next'
 import type { InvitationContent } from '@/templates/types'
 import ElegantGoldTemplate from '@/templates/ElegantGold'
-import { ModernCleanTemplate, RomanticPinkTemplate, BirthdayTemplate } from '@/templates/OtherTemplates'
 
 async function getRecord(slug: string) {
   return prisma.invitation.findUnique({
@@ -108,11 +107,5 @@ export default async function InvitationPage({ params }: { params: Promise<{ slu
 }
 
 function TemplateRenderer({ inv }: { inv: InvitationContent }) {
-  switch (inv.templateId) {
-    case 'elegant-gold':  return <ElegantGoldTemplate inv={inv} />
-    case 'modern-clean':  return <ModernCleanTemplate inv={inv} />
-    case 'romantic-pink': return <RomanticPinkTemplate inv={inv} />
-    case 'birthday':      return <BirthdayTemplate inv={inv} />
-    default:              return <ElegantGoldTemplate inv={inv} />
-  }
+  return <ElegantGoldTemplate inv={inv} />
 }
