@@ -175,7 +175,6 @@ export default function NewInvitationClient() {
   // ── STEP 3: Preview + Edit ───────────────────────────────────────────────
   if (step === 'preview' && generatedHtml) {
     const activeSec = sections.find(s => s.id === activeSection)
-    const previewSrc = makePreviewSrc(generatedHtml)
 
     return (
       <div style={{ minHeight: '100vh', background: '#f7f7f5' }}>
@@ -210,40 +209,11 @@ export default function NewInvitationClient() {
           </div>
         </div>
 
-        {/* Body: preview kiri + editor kanan */}
+        {/* Body: editor kiri + preview kanan */}
         <div style={{ display: 'flex', minHeight: 'calc(100vh - 56px)' }}>
 
-          {/* Phone preview */}
-          <div style={{
-            width: 380, flexShrink: 0,
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            padding: '28px 20px',
-            background: '#e8e8e6', borderRight: '1px solid #ddd',
-            position: 'sticky', top: 56, height: 'calc(100vh - 56px)', overflowY: 'auto',
-          }}>
-            <p style={{ fontSize: 11, color: '#999', marginBottom: 14, letterSpacing: 1, textTransform: 'uppercase' }}>
-              Preview
-            </p>
-            <div style={{
-              width: 300, height: 560,
-              border: '10px solid #111', borderRadius: 34,
-              overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
-              background: '#fff', flexShrink: 0,
-            }}>
-              {/* Notch */}
-              <div style={{ height: 22, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: 50, height: 5, borderRadius: 3, background: '#333' }} />
-              </div>
-              <iframe
-                srcDoc={previewSrc}
-                style={{ width: '100%', height: 'calc(100% - 22px)', border: 'none', display: 'block' }}
-                sandbox="allow-scripts allow-popups allow-forms"
-              />
-            </div>
-          </div>
-
           {/* Section editor */}
-          <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+          <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto', maxWidth: 560 }}>
 
             {sections.length === 0 ? (
               <div style={{
@@ -323,6 +293,40 @@ export default function NewInvitationClient() {
               </>
             )}
           </div>
+
+          {/* Phone preview — kanan */}
+          <div style={{
+            width: 360, flexShrink: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            padding: '28px 24px',
+            background: '#e8e8e6', borderLeft: '1px solid #ddd',
+            position: 'sticky', top: 56, height: 'calc(100vh - 56px)',
+          }}>
+            <p style={{ fontSize: 11, color: '#999', marginBottom: 16, letterSpacing: 1, textTransform: 'uppercase' }}>
+              Preview
+            </p>
+            {/* Phone frame — proporsional untuk layar undangan */}
+            <div style={{
+              width: 260, height: 520,
+              border: '10px solid #1a1a1a', borderRadius: 36,
+              overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
+              background: '#fff', flexShrink: 0, display: 'flex', flexDirection: 'column',
+            }}>
+              {/* Notch */}
+              <div style={{ height: 20, background: '#1a1a1a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 48, height: 5, borderRadius: 3, background: '#333' }} />
+              </div>
+              <iframe
+                srcDoc={makePreviewSrc(generatedHtml)}
+                style={{ width: '100%', flex: 1, border: 'none', display: 'block' }}
+                sandbox="allow-scripts allow-popups allow-forms"
+              />
+            </div>
+            <p style={{ fontSize: 11, color: '#bbb', marginTop: 16, textAlign: 'center', lineHeight: 1.5 }}>
+              Edit di kiri,<br />preview update otomatis
+            </p>
+          </div>
+
         </div>
       </div>
     )
