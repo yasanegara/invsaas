@@ -60,6 +60,62 @@ const ORNAMENT_STYLES = [
 interface InvField { key: string; label: string; multiline?: boolean }
 interface InvSection { id: string; label: string; icon: string; fields: InvField[] }
 
+interface EventFieldDef { key: string; label: string; placeholder: string; required?: boolean; multiline?: boolean; half?: boolean }
+
+const EVENT_FIELDS: Record<string, EventFieldDef[]> = {
+  wedding: [
+    { key: 'nama_wanita',    label: 'Nama mempelai wanita', placeholder: 'Arinda Putri Rahayu', required: true, half: true },
+    { key: 'nama_pria',      label: 'Nama mempelai pria',   placeholder: 'Baskara Wijaya',       required: true, half: true },
+    { key: 'tanggal',        label: 'Tanggal pernikahan',   placeholder: 'Sabtu, 14 Juni 2025',  required: true, half: true },
+    { key: 'akad_time',      label: 'Waktu akad',           placeholder: '08.00 WIB',            half: true },
+    { key: 'akad_venue',     label: 'Venue akad',           placeholder: 'Masjid Al-Hikmah',     half: true },
+    { key: 'akad_address',   label: 'Alamat akad',          placeholder: 'Jl. Mawar No. 1, Jakarta', multiline: true },
+    { key: 'resepsi_time',   label: 'Waktu resepsi',        placeholder: '11.00 – 14.00 WIB',    half: true },
+    { key: 'resepsi_venue',  label: 'Venue resepsi',        placeholder: 'The Sultan Hotel',      half: true },
+    { key: 'resepsi_address',label: 'Alamat resepsi',       placeholder: 'Jl. Sudirman No. 1, Yogyakarta', multiline: true },
+    { key: 'wa_rsvp',        label: 'Nomor WA RSVP',        placeholder: '08123456789',           half: true },
+    { key: 'hashtag',        label: 'Hashtag',              placeholder: '#ArindaBaskara2025',    half: true },
+  ],
+  birthday: [
+    { key: 'nama',    label: 'Nama',              placeholder: 'Galuh Pramesti', required: true, half: true },
+    { key: 'usia',    label: 'Ulang tahun ke-',   placeholder: '25',             half: true },
+    { key: 'tanggal', label: 'Tanggal acara',     placeholder: 'Sabtu, 14 Juni 2025', required: true, half: true },
+    { key: 'waktu',   label: 'Waktu acara',       placeholder: '19.00 WIB',      required: true, half: true },
+    { key: 'venue',   label: 'Tempat / venue',    placeholder: 'Rooftop Kemang', required: true, half: true },
+    { key: 'address', label: 'Alamat',            placeholder: 'Jl. Kemang Raya No. 8, Jakarta', multiline: true },
+    { key: 'dresscode',label: 'Dresscode',        placeholder: 'All Purple',     half: true },
+    { key: 'wa_rsvp', label: 'Nomor WA RSVP',    placeholder: '08123456789',    half: true },
+  ],
+  ceremony: [
+    { key: 'nama_anak',  label: 'Nama anak',        placeholder: 'Muhammad Rasya Putra',    required: true, half: true },
+    { key: 'nama_ortu',  label: 'Nama orang tua',   placeholder: 'Bapak Ahmad & Ibu Sari', required: true, half: true },
+    { key: 'tanggal',    label: 'Tanggal acara',     placeholder: 'Ahad, 15 Juni 2025',     required: true, half: true },
+    { key: 'waktu',      label: 'Waktu acara',       placeholder: '09.00 WIB',              required: true, half: true },
+    { key: 'venue',      label: 'Tempat / venue',    placeholder: 'Gedung Serbaguna',       required: true, half: true },
+    { key: 'address',    label: 'Alamat',            placeholder: 'Jl. Melati No. 5, Bandung', multiline: true },
+    { key: 'wa_rsvp',    label: 'Nomor WA RSVP',    placeholder: '08123456789',             half: true },
+  ],
+  graduation: [
+    { key: 'nama',        label: 'Nama wisudawan/ti', placeholder: 'Siti Nurhaliza',       required: true, half: true },
+    { key: 'prodi',       label: 'Program studi',     placeholder: 'Teknik Informatika',   required: true, half: true },
+    { key: 'universitas', label: 'Universitas',       placeholder: 'Universitas Indonesia',required: true },
+    { key: 'tanggal',     label: 'Tanggal wisuda',    placeholder: 'Sabtu, 14 Juni 2025',  required: true, half: true },
+    { key: 'waktu',       label: 'Waktu acara',       placeholder: '09.00 WIB',            required: true, half: true },
+    { key: 'venue',       label: 'Gedung / tempat',   placeholder: 'Balairung UI',         required: true, half: true },
+    { key: 'address',     label: 'Alamat',            placeholder: 'Kampus UI Depok',      multiline: true },
+    { key: 'dresscode',   label: 'Dresscode',         placeholder: 'Batik Formal',         half: true },
+    { key: 'wa_rsvp',     label: 'Nomor WA RSVP',    placeholder: '08123456789',           half: true },
+  ],
+}
+
+function buildDetails(fields: Record<string, string>, eventType: string): string {
+  const defs = EVENT_FIELDS[eventType] ?? EVENT_FIELDS.wedding
+  return defs
+    .filter(d => fields[d.key]?.trim())
+    .map(d => `${d.label}: ${fields[d.key].trim()}`)
+    .join('\n')
+}
+
 const FIELD_LABELS: Record<string, { label: string; multiline?: boolean }> = {
   'cover-names':      { label: 'Nama di cover' },
   'cover-date':       { label: 'Tanggal di cover' },
@@ -181,7 +237,7 @@ export default function NewInvitationClient() {
   const [step, setStep] = useState<Step>('template')
   const [templateId, setTemplateId] = useState<TemplateId | null>(null)
   const [aiTheme, setAiTheme] = useState('')
-  const [aiDetails, setAiDetails] = useState('')
+  const [eventFields, setEventFields] = useState<Record<string, string>>({})
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
@@ -210,8 +266,10 @@ export default function NewInvitationClient() {
 
   const router = useRouter()
   const isWedding = templateId ? TEMPLATE_META[templateId].eventType === 'wedding' : true
+  const eventType = templateId ? TEMPLATE_META[templateId].eventType : 'wedding'
   const busy = loading || aiLoading
-  const canGenerate = aiDetails.trim().length > 0 && !busy
+  const requiredKeys = (EVENT_FIELDS[eventType] ?? []).filter(f => f.required).map(f => f.key)
+  const canGenerate = requiredKeys.some(k => eventFields[k]?.trim()) && !busy
 
   function handleTemplateSelect(id: TemplateId) {
     setTemplateId(id)
@@ -241,7 +299,8 @@ export default function NewInvitationClient() {
   }
 
   async function handleAiGenerate() {
-    if (!aiDetails.trim() || !templateId) return
+    if (!canGenerate || !templateId) return
+    const detailsStr = buildDetails(eventFields, eventType)
     setAiLoading(true)
     setError('')
     try {
@@ -290,7 +349,7 @@ export default function NewInvitationClient() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: stylePrompt, details: aiDetails.trim(), templateId, refImage }),
+        body: JSON.stringify({ theme: stylePrompt, details: detailsStr, templateId, refImage }),
       })
       const data = await res.json()
       if (!res.ok || !data.customHtml) {
@@ -302,7 +361,7 @@ export default function NewInvitationClient() {
       setSections(detected)
       setEditValues(values)
       setActiveSection(detected[0]?.id ?? null)
-      setGeneratedTitle(data.title || aiDetails.slice(0, 60))
+      setGeneratedTitle(data.title || detailsStr.slice(0, 60))
       setStep('preview')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI gagal generate, coba lagi.')
@@ -699,18 +758,21 @@ export default function NewInvitationClient() {
                 </div>
               </div>
 
-              {/* Tema bebas */}
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
-                  Tema tambahan <span style={{ fontWeight: 400, color: '#aaa' }}>(opsional)</span>
+              {/* Deskripsi gaya bebas — PRIMARY INPUT */}
+              <div style={{ marginBottom: 16, background: '#fafafa', borderRadius: 10, padding: '14px 16px', border: '1.5px solid #e8e8e8' }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#333', display: 'block', marginBottom: 4 }}>
+                  Gambarkan gaya undanganmu
                 </label>
+                <p style={{ fontSize: 11, color: '#aaa', margin: '0 0 8px' }}>
+                  Tulis bebas — nuansa, tema, inspirasi, warna favorit, dll.
+                </p>
                 <textarea
                   value={aiTheme}
                   onChange={e => setAiTheme(e.target.value)}
-                  placeholder="contoh: islami paper quilling, motif bulan sabit dan lentera, kesan 3D..."
-                  rows={2}
+                  placeholder={'contoh: "Nuansa islami elegan, dominan hijau emerald dan emas, ornamen arabesque, font kaligrafi arab, kesan mewah dan sakral"\natau: "Modern minimalis, hitam putih, tipografi tegas, tidak perlu banyak ornamen"\natau: "Seperti undangan Bali — bunga kamboja, warna coklat earth tone, foto prewedding di sawah"'}
+                  rows={4}
                   disabled={busy}
-                  style={textareaStyle}
+                  style={{ ...textareaStyle, background: '#fff' }}
                 />
               </div>
 
@@ -737,25 +799,39 @@ export default function NewInvitationClient() {
                 )}
               </div>
 
+              {/* Structured event fields */}
               <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 6 }}>
-                  Detail acara <span style={{ fontWeight: 400, color: '#e53e3e' }}>*</span>
+                <label style={{ fontSize: 13, fontWeight: 600, color: '#333', display: 'block', marginBottom: 10 }}>
+                  Data acara <span style={{ fontWeight: 400, color: '#e53e3e', fontSize: 11 }}>* wajib</span>
                 </label>
-                <textarea
-                  value={aiDetails}
-                  onChange={e => setAiDetails(e.target.value)}
-                  placeholder={
-                    isWedding
-                      ? 'contoh: Pernikahan Arinda Putri dan Baskara Wijaya, Sabtu 14 Juni 2025, akad jam 08.00 resepsi jam 11.00–14.00 WIB, di The Sultan Hotel Yogyakarta, RSVP ke 08123456789'
-                      : 'contoh: Ulang tahun Galuh ke-25, Sabtu 14 Juni 2025 jam 19.00, di Rooftop Kemang Jakarta Selatan, dresscode ungu'
-                  }
-                  rows={3}
-                  disabled={busy}
-                  style={textareaStyle}
-                />
-                <p style={{ fontSize: 11, color: '#bbb', margin: '4px 0 0' }}>
-                  Sertakan: nama, tanggal, waktu, tempat{isWedding ? ', nomor RSVP' : ''}
-                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {(EVENT_FIELDS[eventType] ?? []).map(f => (
+                    <div key={f.key} style={{ gridColumn: f.multiline || !f.half ? '1 / -1' : undefined }}>
+                      <label style={{ fontSize: 11, fontWeight: 500, color: f.required ? '#555' : '#888', display: 'block', marginBottom: 4 }}>
+                        {f.label}{f.required ? ' *' : ' (opsional)'}
+                      </label>
+                      {f.multiline ? (
+                        <textarea
+                          value={eventFields[f.key] ?? ''}
+                          onChange={e => setEventFields(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder}
+                          rows={2}
+                          disabled={busy}
+                          style={textareaStyle}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={eventFields[f.key] ?? ''}
+                          onChange={e => setEventFields(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={f.placeholder}
+                          disabled={busy}
+                          style={inputStyle}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <button
