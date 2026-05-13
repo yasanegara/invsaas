@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/db'
 import OpenAI from 'openai'
 
 function extractTitle(html: string, details: string, isWedding: boolean): string {
@@ -10,6 +11,53 @@ function extractTitle(html: string, details: string, isWedding: boolean): string
   const bdayMatch = details.match(/(?:ulang tahun|birthday|ultah)\s+([A-Za-zÀ-ſ]+)/i)
   if (bdayMatch) return `Ulang Tahun ${bdayMatch[1]}`
   return isWedding ? 'Undangan Pernikahan' : 'Undangan Ulang Tahun'
+}
+
+const DEFAULTS = {
+  model: process.env.OPENAI_MODEL ?? 'anthropic/claude-sonnet-4-6',
+  temperature: 0.8,
+  max_tokens: 8000,
+  role: 'Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.',
+  task: 'Buat satu halaman undangan digital lengkap dan sangat indah berdasarkan data acara yang diberikan. Halaman harus bisa langsung dibuka di browser tanpa dependensi eksternal selain Tailwind CDN dan Google Fonts.',
+  constraint_data: `- GUNAKAN PERSIS data dari user — nama, tanggal, waktu, tempat, nomor — tidak boleh diubah satu karakter pun.
+- Jika suatu data tidak disebutkan, tulis placeholder eksplisit: [Nama], [Tanggal], [Venue], [Alamat], [Nomor RSVP]. JANGAN isi dengan nilai karangan.
+- NOMOR TELEPON/WHATSAPP: hanya tampilkan jika user memberikan nomor. Jika tidak ada, tulis "[Hubungi kami]".
+- AYAT AL-QUR'AN: hanya pakai ayat yang sangat umum (QS Ar-Rum: 21, QS An-Nisa: 1). Jika ragu teks arabnya, pakai quote cinta umum berbahasa Indonesia — JANGAN mengarang teks arab atau terjemahan palsu.`,
+  constraint_output: `- Output HANYA kode HTML: mulai tepat di \`<!DOCTYPE html\`, akhiri tepat di \`</html>\`. Tidak ada teks sebelum atau sesudah.
+- Tidak boleh menyertakan blok markdown (\`\`\`html), penjelasan, atau komentar di luar tag HTML.`,
+  constraint_technical: `- Semua background wajib inline style — Tailwind CDN bisa gagal load background utility.
+- Ornamen SVG harus inline \`<svg>...\` — bukan URL eksternal.
+- Semua section ID dan data-edit attribute yang diminta di bawah WAJIB ada persis seperti yang ditentukan.`,
+  visual_standard: `- Background tiap section: gradient unik, BUKAN polos putih
+- Setiap section punya ornamen SVG atau pattern dekoratif
+- Cards: bg-white/10 backdrop-blur rounded-2xl shadow-2xl border border-white/20
+- Nama mempelai: text-5xl md:text-7xl, font script, letter-spacing lebar
+- Divider antar section: ornamen SVG cantik (bunga, garis berliku, bintang)
+- Animasi scroll: class animate yang trigger saat tampil
+- Tombol RSVP: py-4 px-10 rounded-full gradient shadow-lg text-lg font-semibold
+- Color palette: gunakan tailwind.config extend.colors, konsisten seluruh halaman
+- Mobile-first: semua section responsif, padding cukup`,
+}
+
+async function getConfig(): Promise<typeof DEFAULTS> {
+  try {
+    const rows = await prisma.aiConfig.findMany()
+    const db: Record<string, string> = {}
+    for (const row of rows) db[row.key] = row.value
+    return {
+      model: db.model ?? DEFAULTS.model,
+      temperature: db.temperature ? parseFloat(db.temperature) : DEFAULTS.temperature,
+      max_tokens: db.max_tokens ? parseInt(db.max_tokens) : DEFAULTS.max_tokens,
+      role: db.role ?? DEFAULTS.role,
+      task: db.task ?? DEFAULTS.task,
+      constraint_data: db.constraint_data ?? DEFAULTS.constraint_data,
+      constraint_output: db.constraint_output ?? DEFAULTS.constraint_output,
+      constraint_technical: db.constraint_technical ?? DEFAULTS.constraint_technical,
+      visual_standard: db.visual_standard ?? DEFAULTS.visual_standard,
+    }
+  } catch {
+    return DEFAULTS
+  }
 }
 
 export async function POST(request: Request) {
@@ -32,27 +80,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Detail acara wajib diisi' }, { status: 400 })
   }
 
+  const cfg = await getConfig()
   const isWedding = ['elegant-gold', 'modern-clean', 'romantic-pink'].includes(templateId)
 
   const systemPrompt = `## ROLE
-Kamu adalah front-end developer senior Indonesia, spesialis undangan digital mewah. Kamu hanya menghasilkan kode HTML — tidak pernah menjelaskan, tidak pernah berkomentar di luar HTML.
+${cfg.role}
 
 ## TASK
-Buat satu halaman undangan digital lengkap dan sangat indah berdasarkan data acara yang diberikan. Halaman harus bisa langsung dibuka di browser tanpa dependensi eksternal selain Tailwind CDN dan Google Fonts.
+${cfg.task}
 
 ## CONSTRAINTS
 ### Data & Akurasi
-- GUNAKAN PERSIS data dari user — nama, tanggal, waktu, tempat, nomor — tidak boleh diubah satu karakter pun.
-- Jika suatu data tidak disebutkan, tulis placeholder eksplisit: [Nama], [Tanggal], [Venue], [Alamat], [Nomor RSVP]. JANGAN isi dengan nilai karangan.
-- NOMOR TELEPON/WHATSAPP: hanya tampilkan jika user memberikan nomor. Jika tidak ada, tulis "[Hubungi kami]".
-- AYAT AL-QUR'AN: hanya pakai ayat yang sangat umum (QS Ar-Rum: 21, QS An-Nisa: 1). Jika ragu teks arabnya, pakai quote cinta umum berbahasa Indonesia — JANGAN mengarang teks arab atau terjemahan palsu.
+${cfg.constraint_data}
 ### Output
-- Output HANYA kode HTML: mulai tepat di \`<!DOCTYPE html\`, akhiri tepat di \`</html>\`. Tidak ada teks sebelum atau sesudah.
-- Tidak boleh menyertakan blok markdown (\`\`\`html), penjelasan, atau komentar di luar tag HTML.
+${cfg.constraint_output}
 ### Teknis
-- Semua background wajib inline style — Tailwind CDN bisa gagal load background utility.
-- Ornamen SVG harus inline \`<svg>...\` — bukan URL eksternal.
-- Semua section ID dan data-edit attribute yang diminta di bawah WAJIB ada persis seperti yang ditentukan.
+${cfg.constraint_technical}
 
 ━━━ HEAD WAJIB ━━━
 <head> harus berisi SEMUA ini:
@@ -130,15 +173,7 @@ section-footer:
   <p data-edit="hashtag">         — hashtag
 
 ━━━ STANDAR VISUAL TINGGI ━━━
-- Background tiap section: gradient unik, BUKAN polos putih
-- Setiap section punya ornamen SVG atau pattern dekoratif
-- Cards: bg-white/10 backdrop-blur rounded-2xl shadow-2xl border border-white/20
-- Nama mempelai: text-5xl md:text-7xl, font script, letter-spacing lebar
-- Divider antar section: ornamen SVG cantik (bunga, garis berliku, bintang)
-- Animasi scroll: class animate yang trigger saat tampil
-- Tombol RSVP: py-4 px-10 rounded-full gradient shadow-lg text-lg font-semibold
-- Color palette: gunakan tailwind.config extend.colors, konsisten seluruh halaman
-- Mobile-first: semua section responsif, padding cukup
+${cfg.visual_standard}
 
 ━━━ TEMA & GAYA ━━━
 ${theme.trim() || `Elegan dan mewah, ${isWedding ? 'romantis dengan sentuhan gold dan krem' : 'meriah dan modern'}`}
@@ -164,13 +199,13 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
   let raw = ''
   try {
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? 'anthropic/claude-sonnet-4-6',
+      model: cfg.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: refImage ? userContent : 'Buat sekarang. Hasilkan undangan digital yang sangat indah, mewah, dan profesional. Pastikan semua data persis dari input, semua data-edit ada, semua section ID ada.' },
       ],
-      temperature: 0.8,
-      max_tokens: 8000,
+      temperature: cfg.temperature,
+      max_tokens: cfg.max_tokens,
     })
     raw = completion.choices[0]?.message?.content ?? ''
   } catch (err: unknown) {
@@ -181,7 +216,6 @@ OUTPUT: HANYA HTML. Mulai dari <!DOCTYPE html>, akhiri dengan </html>.`
 
   console.log('[ai/generate] raw length:', raw.length, '| first 200:', raw.slice(0, 200))
 
-  // Terima <!DOCTYPE html> atau <html> langsung
   const htmlMatch = raw.match(/<!DOCTYPE html[\s\S]*<\/html>|<html[\s\S]*<\/html>/i)
   const customHtml = htmlMatch?.[0] ?? null
 
