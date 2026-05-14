@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import Link from 'next/link'
+import DeleteInvitationButton from '@/components/DeleteInvitationButton'
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -87,7 +88,7 @@ export default async function DashboardPage() {
                   <span>{inv.viewCount} views</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {inv.status === 'published' && (
                   <Link
                     href={`/i/${inv.slug}`}
@@ -103,6 +104,7 @@ export default async function DashboardPage() {
                 >
                   Edit
                 </Link>
+                <DeleteInvitationButton id={inv.id} />
               </div>
             </div>
           ))}

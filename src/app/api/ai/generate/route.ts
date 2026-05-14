@@ -157,6 +157,7 @@ export async function POST(request: Request) {
   const details: string = body.details ?? body.prompt ?? ''
   const templateId: string = body.templateId ?? 'elegant-gold'
   const refImage: string | null = body.refImage ?? null
+  const brief: string = body.brief ?? ''
 
   if (!details.trim()) {
     return NextResponse.json({ error: 'Detail acara wajib diisi' }, { status: 400 })
@@ -182,61 +183,20 @@ export async function POST(request: Request) {
     ? 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, akad-time, akad-venue, akad-address, resepsi-time, resepsi-venue, resepsi-address, rsvp-button, hashtag'
     : 'cover-names, cover-date, cover-button, hero-names, hero-tagline, opening-message, quote, event-time, event-venue, event-address, rsvp-button, hashtag'
 
-  const systemPrompt = `Kamu adalah front-end developer spesialis undangan digital Indonesia. Buat halaman HTML undangan yang lengkap, sangat indah, dan profesional.
-
-JENIS: ${EVENT_TYPE_LABEL[eventType]}
-DATA ACARA (gunakan PERSIS — jangan ubah nama, tanggal, tempat):
-${details.trim()}
-
-GAYA VISUAL: ${theme.trim() || meta.themeHint}${refImage ? '\nSesuaikan gaya, palet warna, dan mood dari gambar referensi.' : ''}
-
-TEKNIS WAJIB:
-- <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-- <script src="https://cdn.tailwindcss.com"></script> + tailwind.config dengan warna tema
-- Google Fonts 2 font (script dekoratif + sans-serif) via <link>
-- SEMUA background wajib inline style="background:linear-gradient(...)" — JANGAN class Tailwind bg-*
-- Ornamen SVG: inline <svg>...</svg>, bukan URL eksternal
-- Mobile-first, semua section responsif
-
-STRUKTUR HALAMAN:
-1. <div id="cover" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:...">
-   Nama besar font script, tanggal, ornamen SVG, tombol:
-   <button data-edit="cover-button" onclick="openInvitation()">✉ Buka Undangan</button>
-2. <div id="content" style="display:none;opacity:0">
-   Berisi section (gunakan id tepat): ${SECTION_IDS[eventType]}
-3. Script wajib di body:
-   <script>function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s';i.style.opacity='1';},30);},800);}</script>
-
-DATA-EDIT: SETIAP teks yang tampil ke tamu WAJIB punya atribut data-edit.
-Keys wajib: ${dataEditList}
-Contoh: <h2 data-edit="hero-names">Ahmad & Siti</h2>, <p data-edit="opening-message">Pesan...</p>
-
-VISUAL: Tiap section punya gradient background unik, ornamen SVG dekoratif, card glassmorphism, animasi fadeInUp. Nama utama font script text-5xl+. Tombol RSVP rounded-full gradient shadow-lg.
-
-OUTPUT: Mulai langsung <!DOCTYPE html hingga </html>. Tanpa markdown, tanpa penjelasan.`
-
   type ContentPart =
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: 'high' } }
 
-  const userText = `Generate the ${EVENT_TYPE_LABEL[eventType]} invitation HTML now. Make it stunning, complete, and professional. Output only HTML starting with <!DOCTYPE html.`
-  const userContent: ContentPart[] = [
-    { type: 'text', text: userText },
-  ]
-  if (refImage) {
-    userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
-  }
-
-  async function callModel(model: string, sysprompt: string, usermsg: string | ContentPart[]): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function callModel(model: string, sysprompt: string, usermsg: string | ContentPart[], maxTokens?: number): Promise<string> {
     const completion = await openai.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: sysprompt },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         { role: 'user', content: usermsg as any },
       ],
       temperature: cfg.temperature,
-      max_tokens: cfg.max_tokens,
+      max_tokens: maxTokens ?? cfg.max_tokens,
     })
     return completion.choices[0]?.message?.content ?? ''
   }
@@ -252,10 +212,62 @@ OUTPUT: Mulai langsung <!DOCTYPE html hingga </html>. Tanpa markdown, tanpa penj
     )
   }
 
+  // ── HTML Generation (brief dikirim dari client sebagai hasil pass 1) ──────
+  const systemPrompt = `Kamu adalah front-end developer kelas dunia. Implementasikan design brief di bawah menjadi halaman undangan HTML yang MEMUKAU — standar Awwwards, Dribbble top shot, karya premium agency.
+${brief ? `
+━━━ DESIGN BRIEF — IMPLEMENTASIKAN PERSIS ━━━
+${brief}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Setiap keputusan visual WAJIB mengikuti brief: palet warna, font, ornamen SVG, animasi, card design — semua sesuai brief.
+Jangan buat keputusan visual sendiri yang tidak ada di brief.
+` : `GAYA VISUAL: ${theme.trim() || meta.themeHint}${refImage ? '\nSesuaikan gaya, palet, dan mood dari gambar referensi.' : ''}
+`}
+JENIS: ${EVENT_TYPE_LABEL[eventType]}
+DATA ACARA (gunakan PERSIS — jangan ubah satu karakter pun):
+${details.trim()}
+
+TEKNIS WAJIB:
+- <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+- <script src="https://cdn.tailwindcss.com"></script> + tailwind.config extend.colors dan fontFamily sesuai brief
+- Google Fonts via <link> — gunakan font dari brief
+- SEMUA background WAJIB inline style="..." bukan class Tailwind bg-*
+- Ornamen SVG: inline <svg>...</svg> sesuai deskripsi brief, bukan URL eksternal
+- @keyframes di <style>: fadeInUp, float, shimmer, pulse-glow (sesuai brief)
+- IntersectionObserver untuk trigger animasi saat section masuk viewport
+- Mobile-first, padding cukup, semua section responsif
+
+STRUKTUR HALAMAN:
+1. <div id="cover" style="min-height:100vh;display:flex;align-items:center;justify-content:center;...">
+   Ornamen SVG di 4 sudut, nama dalam font display besar dengan animasi, tanggal, tombol:
+   <button data-edit="cover-button" onclick="openInvitation()">✉ Buka Undangan</button>
+2. <div id="content" style="display:none;opacity:0">
+   Sections dengan id tepat: ${SECTION_IDS[eventType]}
+3. Script wajib di akhir body:
+   <script>function openInvitation(){var c=document.getElementById('cover');c.style.transition='opacity 0.8s';c.style.opacity='0';setTimeout(function(){c.style.display='none';var i=document.getElementById('content');i.style.display='block';setTimeout(function(){i.style.transition='opacity 0.8s';i.style.opacity='1';},30);},800);}</script>
+
+DATA-EDIT WAJIB — setiap teks yang tampil ke tamu:
+Keys: ${dataEditList}
+Contoh: <h2 data-edit="hero-names">Ahmad & Siti</h2>
+
+STANDAR KUALITAS MINIMUM:
+- Nama utama: font display dari brief, minimal text-6xl md:text-8xl, animasi shimmer atau fadeIn
+- Cover: ornamen SVG di keempat sudut sesuai brief, latar sesuai palette brief
+- Setiap section: ornamen SVG divider sesuai brief, card dengan glassmorphism atau shadow sesuai teknik brief
+- Animasi: semua keyframes dari brief diimplementasikan
+- Tombol RSVP: rounded-full, gradient sesuai palet, shadow-xl, scale hover
+- Keseluruhan: MEWAH, MEMUKAU, PROFESIONAL — layak untuk acara paling penting dalam hidup
+
+OUTPUT: Mulai tepat <!DOCTYPE html, akhiri </html>. Tanpa markdown, tanpa penjelasan.`
+
+  const userText = `Implementasikan design brief menjadi halaman undangan ${EVENT_TYPE_LABEL[eventType]} yang memukau. Wujudkan SETIAP DETAIL dari brief — palet, font, ornamen SVG, animasi, teknik CSS. Output HTML saja, mulai <!DOCTYPE html.`
+  const userContent: ContentPart[] = [{ type: 'text', text: userText }]
+  if (refImage) userContent.push({ type: 'image_url', image_url: { url: refImage, detail: 'high' } })
+
   let raw = ''
   try {
     raw = await callModel(cfg.model, systemPrompt, refImage ? userContent : userText)
-    console.log(`[ai/generate] model=${cfg.model} raw length=${raw.length} | first 100: ${raw.slice(0, 100)}`)
+    console.log(`[ai/generate] html length=${raw.length} brief=${!!brief} | first 100: ${raw.slice(0, 100)}`)
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: `API error: ${msg}` }, { status: 502 })
@@ -270,7 +282,7 @@ OUTPUT: Mulai langsung <!DOCTYPE html hingga </html>. Tanpa markdown, tanpa penj
     )
   }
 
-  console.log(`[ai/generate] success model=${cfg.model} html length=${customHtml.length}`)
+  console.log(`[ai/generate] success html length=${customHtml.length}`)
 
   return NextResponse.json({
     title: extractTitle(customHtml, details, isWedding),

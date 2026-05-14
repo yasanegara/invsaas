@@ -1,61 +1,97 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import TemplatePicker from '@/components/TemplatePicker'
 import type { TemplateId } from '@/templates/types'
 import { TEMPLATE_META } from '@/templates/types'
 
-type Step = 'template' | 'details' | 'preview'
+type Step = 'details' | 'preview'
 
-const COLOR_PALETTES = [
-  { id: 'gold-cream',  label: 'Emas & Krem',  colors: ['#c9a94e', '#f5e6c8', '#6b4c0f'] },
-  { id: 'emerald',     label: 'Emerald',       colors: ['#065f46', '#a7f3d0', '#064e3b'] },
-  { id: 'navy-gold',   label: 'Navy & Gold',   colors: ['#1e3a5f', '#c9a94e', '#0f172a'] },
-  { id: 'maroon',      label: 'Maroon',        colors: ['#7f1d1d', '#fca5a5', '#450a0a'] },
-  { id: 'lavender',    label: 'Lavender',      colors: ['#4c1d95', '#ddd6fe', '#2e1065'] },
-  { id: 'rose-gold',   label: 'Rose Gold',     colors: ['#9d174d', '#fbcfe8', '#500724'] },
-] as const
+// Encoded SVG patterns for background-image
+const _arabeskSvg = `url("data:image/svg+xml,%3Csvg width='56' height='56' viewBox='0 0 56 56' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23D4AF37' fill-opacity='0.18' d='M28 4l3 10h10l-8 6 3 10-8-6-8 6 3-10-8-6h10zm0 28l3 10h10l-8 6 3 10-8-6-8 6 3-10-8-6h10z'/%3E%3C/svg%3E")`
+const _batikSvg = `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='8' fill='none' stroke='%23c4652a' stroke-opacity='0.2' stroke-width='1.5'/%3E%3Ccircle cx='0' cy='0' r='8' fill='none' stroke='%23c4652a' stroke-opacity='0.15' stroke-width='1'/%3E%3Ccircle cx='40' cy='0' r='8' fill='none' stroke='%23c4652a' stroke-opacity='0.15' stroke-width='1'/%3E%3Ccircle cx='0' cy='40' r='8' fill='none' stroke='%23c4652a' stroke-opacity='0.15' stroke-width='1'/%3E%3Ccircle cx='40' cy='40' r='8' fill='none' stroke='%23c4652a' stroke-opacity='0.15' stroke-width='1'/%3E%3C/svg%3E")`
 
-const BG_STYLES = [
-  { id: 'gradient', label: '🌈 Gradient berlapis' },
-  { id: 'geometric', label: '◆ Geometri' },
-  { id: 'floral', label: '🌸 Floral / Batik' },
-  { id: 'solid', label: '▪ Solid elegan' },
-] as const
+interface BgPreset {
+  id: string
+  label: string
+  thumb: string  // CSS value for preview div background
+  css: string | null  // CSS to inject into HTML (null = no override)
+  prompt: string  // instruction for AI
+}
 
-const ANIM_LEVELS = [
-  { id: 'subtle', label: '✦ Halus' },
-  { id: 'medium', label: '✦✦ Sedang' },
-  { id: 'rich',   label: '✦✦✦ Meriah' },
-] as const
-
-const VISUAL_STYLES = [
-  { id: 'none',          label: 'Default' },
-  { id: 'glassmorphism', label: '🪟 Glassmorphism' },
-  { id: 'paper-quilling',label: '🌀 Paper Quilling' },
-  { id: 'neumorphism',   label: '⬜ Neumorphism' },
-  { id: 'royal-islamic', label: '☪️ Royal Islamic' },
-  { id: 'earth-tones',   label: '🍂 Earth Tones' },
-  { id: 'cyberpunk',     label: '⚡ Cyberpunk Neon' },
-] as const
-
-const TYPOGRAPHY_PAIRS = [
-  { id: 'script-sans',   label: 'Script + Sans',   fonts: 'Great Vibes + Raleway' },
-  { id: 'serif-sans',    label: 'Serif + Sans',     fonts: 'Cormorant Garamond + Montserrat' },
-  { id: 'display-serif', label: 'Display + Serif',  fonts: 'Cinzel + Playfair Display' },
-  { id: 'arabic-serif',  label: 'Arabic + Serif',   fonts: 'Amiri + Playfair Display' },
-  { id: 'playful',       label: 'Playful',          fonts: 'Pacifico + Nunito' },
-] as const
-
-const ORNAMENT_STYLES = [
-  { id: 'floral-svg',  label: '🌺 Bunga & Daun' },
-  { id: 'geometric-svg', label: '◆ Geometri Islam' },
-  { id: 'minimal-line', label: '— Garis Minimal' },
-  { id: 'mandala',     label: '✿ Mandala' },
-  { id: 'ribbon',      label: '🎀 Ribbon & Pita' },
-] as const
+const BACKGROUND_PRESETS: BgPreset[] = [
+  {
+    id: 'none',
+    label: 'Default AI',
+    thumb: 'linear-gradient(135deg,#f0f0ee,#e0e0dc)',
+    css: null,
+    prompt: '',
+  },
+  {
+    id: 'emas-krem',
+    label: 'Emas & Krem',
+    thumb: 'linear-gradient(135deg,#c9a94e,#f5e6c8,#e8d5a3)',
+    css: `html,body{background:linear-gradient(160deg,#fffdf5 0%,#fdf6e0 35%,#f5e6c8 65%,#fffdf5 100%)!important;background-attachment:fixed!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background:linear-gradient(160deg,#fffdf5 0%,#fdf6e0 35%,#f5e6c8 65%,#fffdf5 100%). Jangan pakai background warna lain. Gunakan teks gelap (#3a2800, #6b4c00) agar terbaca.',
+  },
+  {
+    id: 'emerald',
+    label: 'Emerald Islam',
+    thumb: 'linear-gradient(135deg,#022c22,#065f46,#0d9488)',
+    css: `html,body{background:linear-gradient(160deg,#022c22 0%,#064e3b 45%,#065f46 75%,#022c22 100%)!important;background-attachment:fixed!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background:linear-gradient(160deg,#022c22 0%,#064e3b 45%,#065f46 75%,#022c22 100%). Jangan pakai background warna lain. Gunakan teks putih (#fdfbf7) dan aksen emas (#d4af37) agar terbaca.',
+  },
+  {
+    id: 'navy-gold',
+    label: 'Navy & Emas',
+    thumb: 'linear-gradient(135deg,#0f172a,#1e3a5f,#c9a94e40)',
+    css: `html,body{background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%)!important;background-attachment:fixed!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 50%,#0f172a 100%). Jangan pakai background warna lain. Gunakan teks putih dan aksen emas #D4AF37 agar terbaca.',
+  },
+  {
+    id: 'marble',
+    label: 'Marmer Putih',
+    thumb: 'linear-gradient(135deg,#f8f8f6,#e8e4df,#f2ede8)',
+    css: `html,body{background-color:#f5f3f0!important;background-image:repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(200,190,180,.1) 60px,rgba(200,190,180,.1) 61px),repeating-linear-gradient(-45deg,transparent,transparent 80px,rgba(180,170,160,.07) 80px,rgba(180,170,160,.07) 81px)!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background-color:#f5f3f0 dan background-image repeating-linear-gradient diagonal tipis. Jangan pakai background warna lain. Gunakan teks gelap (#1a1a1a) agar terbaca.',
+  },
+  {
+    id: 'sakura',
+    label: 'Sakura Rose',
+    thumb: 'linear-gradient(135deg,#fff0f5,#fce7f3,#fbcfe8)',
+    css: `html,body{background:linear-gradient(160deg,#fff0f5 0%,#fce7f3 40%,#ffe4e6 70%,#fff0f5 100%)!important;background-attachment:fixed!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background:linear-gradient(160deg,#fff0f5 0%,#fce7f3 40%,#ffe4e6 70%,#fff0f5 100%). Jangan pakai background warna lain. Gunakan teks rose (#4a0020) agar terbaca.',
+  },
+  {
+    id: 'arabesque',
+    label: 'Arabesque',
+    thumb: 'linear-gradient(135deg,#1a2a4a,#243556)',
+    css: `html,body{background-color:#1a2a4a!important;background-image:${_arabeskSvg}!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background-color:#1a2a4a. Jangan pakai background warna lain. Gunakan teks putih/krem dan aksen emas #D4AF37 agar terbaca.',
+  },
+  {
+    id: 'batik',
+    label: 'Batik Jawa',
+    thumb: 'linear-gradient(135deg,#fdf3e7,#f5e6c8)',
+    css: `html,body{background-color:#fdf3e7!important;background-image:${_batikSvg}!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background-color:#fdf3e7. Jangan pakai background warna lain. Gunakan teks coklat gelap (#4a2c10) agar terbaca.',
+  },
+  {
+    id: 'lavender',
+    label: 'Lavender',
+    thumb: 'linear-gradient(135deg,#2e1065,#4c1d95,#7c3aed)',
+    css: `html,body{background:linear-gradient(160deg,#2e1065 0%,#4c1d95 45%,#5b21b6 75%,#2e1065 100%)!important;background-attachment:fixed!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background:linear-gradient(160deg,#2e1065 0%,#4c1d95 45%,#5b21b6 75%,#2e1065 100%). Jangan pakai background warna lain. Gunakan teks putih dan aksen silver/gold agar terbaca.',
+  },
+  {
+    id: 'earth',
+    label: 'Earth Tone',
+    thumb: 'linear-gradient(135deg,#fdf3e7,#f5dab0,#e8c07a)',
+    css: `html,body{background:linear-gradient(160deg,#fdf6ec 0%,#f5e6c8 40%,#fde8c8 70%,#fdf6ec 100%)!important;background-attachment:fixed!important}`,
+    prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai inline style background:linear-gradient(160deg,#fdf6ec 0%,#f5e6c8 40%,#fde8c8 70%,#fdf6ec 100%). Jangan pakai background warna lain. Gunakan teks terakota gelap (#7c3417) agar terbaca.',
+  },
+]
 
 interface InvField { key: string; label: string; multiline?: boolean }
 interface InvSection { id: string; label: string; icon: string; fields: InvField[] }
@@ -227,31 +263,39 @@ function applyEdit(html: string, key: string, value: string): string {
   return '<!DOCTYPE html>' + doc.documentElement.outerHTML
 }
 
+function injectBackground(html: string, css: string): string {
+  // Apply the same background to html/body AND every section element
+  const expandedCss = css.replace('html,body{', 'html,body,[id^="section-"]{')
+  const tag = `<style id="bg-override">${expandedCss}</style>`
+  return html.includes('<head>') ? html.replace('<head>', '<head>' + tag) : tag + html
+}
+
 function makePreviewSrc(html: string): string {
-  // Inject CSS to show content directly (skip cover animation for preview)
   const style = `<style>#cover{display:none!important}#content{display:block!important;opacity:1!important}</style>`
-  return html.includes('<head>') ? html.replace('<head>', '<head>' + style) : style + html
+  const listener = `<script>window.addEventListener('message',function(e){if(!e.data||e.data.type!=='scrollTo')return;var ids=e.data.ids||[];for(var i=0;i<ids.length;i++){var el=document.getElementById(ids[i]);if(el){el.scrollIntoView({behavior:'smooth',block:'start'});break;}}});</` + `script>`
+  let result = html.includes('<head>') ? html.replace('<head>', '<head>' + style) : style + html
+  result = result.includes('</body>') ? result.replace('</body>', listener + '</body>') : result + listener
+  return result
 }
 
 export default function NewInvitationClient() {
-  const [step, setStep] = useState<Step>('template')
-  const [templateId, setTemplateId] = useState<TemplateId | null>(null)
+  const [step, setStep] = useState<Step>('details')
+  const [templateId, setTemplateId] = useState<TemplateId | null>('paper-quilling-islami')
   const [aiTheme, setAiTheme] = useState('')
   const [eventFields, setEventFields] = useState<Record<string, string>>({})
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiPhase, setAiPhase] = useState<'brief' | 'html' | null>(null)
   const [error, setError] = useState('')
 
-  // Style pickers
-  const [colorPalette, setColorPalette] = useState<string>('gold-cream')
-  const [bgStyle, setBgStyle] = useState<string>('gradient')
-  const [animLevel, setAnimLevel] = useState<string>('medium')
-  const [visualStyle, setVisualStyle] = useState<string>('none')
-  const [typoPair, setTypoPair] = useState<string>('script-sans')
-  const [ornamentStyle, setOrnamentStyle] = useState<string>('floral-svg')
   const [musicUrl, setMusicUrl] = useState<string>('')
   const [socialMedia, setSocialMedia] = useState<string>('')
+
+  // Background preset
+  const [bgPresetId, setBgPresetId] = useState<string>('none')
+  const [bgCustomImage, setBgCustomImage] = useState<string | null>(null)
+  const [bgCustomImageName, setBgCustomImageName] = useState('')
 
   // Referensi gambar
   const [refImage, setRefImage] = useState<string | null>(null)
@@ -263,6 +307,10 @@ export default function NewInvitationClient() {
   const [editValues, setEditValues] = useState<Record<string, string>>({})
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [generatedTitle, setGeneratedTitle] = useState('')
+
+  const previewIframeRef = useRef<HTMLIFrameElement>(null)
+  const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null)
 
   const router = useRouter()
   const isWedding = templateId ? TEMPLATE_META[templateId].eventType === 'wedding' : true
@@ -280,6 +328,20 @@ export default function NewInvitationClient() {
     e.preventDefault()
     if (!title.trim() || !templateId) return
     await createInvitation({ title: title.trim() })
+  }
+
+  function handleBgImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) { setError('Gambar terlalu besar, maks 4MB.'); return }
+    const reader = new FileReader()
+    reader.onload = ev => {
+      setBgCustomImage(ev.target?.result as string)
+      setBgCustomImageName(file.name)
+      setBgPresetId('custom')
+      setError('')
+    }
+    reader.readAsDataURL(file)
   }
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -302,68 +364,53 @@ export default function NewInvitationClient() {
     if (!canGenerate || !templateId) return
     const detailsStr = buildDetails(eventFields, eventType)
     setAiLoading(true)
+    setAiPhase('brief')
     setError('')
     try {
-      const palette = COLOR_PALETTES.find(p => p.id === colorPalette)
-      const typo = TYPOGRAPHY_PAIRS.find(t => t.id === typoPair)
-      const bgInstruction =
-        bgStyle === 'gradient'  ? 'BACKGROUND: setiap section pakai gradient berlapis 3 warna, variasikan arah (135deg, 180deg, radial-gradient)' :
-        bgStyle === 'geometric' ? 'BACKGROUND: overlay pola geometri SVG inline (hexagon atau diamond grid) di atas gradient, opacity 0.15' :
-        bgStyle === 'floral'    ? 'BACKGROUND: ornamen bunga dan daun SVG mengisi area background setiap section sebagai pattern dekoratif' :
-        bgStyle === 'solid'     ? 'BACKGROUND: warna solid elegan dengan box-shadow inset halus dan border dekoratif tipis' : ''
-
-      const animInstruction =
-        animLevel === 'subtle' ? 'ANIMASI: hanya opacity fadeIn 1s pada load section, tidak ada looping animation' :
-        animLevel === 'medium' ? 'ANIMASI: fadeInUp 0.6s tiap section via IntersectionObserver, float 3s infinite pada ornamen header' :
-        animLevel === 'rich'   ? 'ANIMASI: fadeInUp pada section, shimmer @keyframes pada teks nama, float pada ornamen, pulse-glow pada tombol RSVP' : ''
-
-      const paletteInstruction = palette
-        ? `PALET WARNA WAJIB: primary=${palette.colors[0]}, light=${palette.colors[1]}, dark=${palette.colors[2]} — gunakan konsisten di seluruh halaman`
-        : ''
-
-      const visualInstruction =
-        visualStyle === 'glassmorphism'  ? 'GAYA GLASSMORPHISM: card/panel pakai style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2)"' :
-        visualStyle === 'paper-quilling' ? 'GAYA PAPER QUILLING: elemen pakai box-shadow:inset 2px 2px 5px rgba(0,0,0,0.3),inset -2px -2px 5px rgba(255,255,255,0.5) untuk efek kertas 3D' :
-        visualStyle === 'neumorphism'    ? 'GAYA NEUMORPHISM: elemen pakai box-shadow kembar "6px 6px 12px rgba(0,0,0,0.2),-6px -6px 12px rgba(255,255,255,0.7)" pada background solid' :
-        visualStyle === 'royal-islamic'  ? 'GAYA ROYAL ISLAMIC: override palet ke Navy #1e3a5f, Gold #D4AF37, Cream #FDFBF7; ornamen arabesk dan kaligrafi SVG' :
-        visualStyle === 'earth-tones'    ? 'GAYA EARTH TONES: override palet ke Terakota #c4652a, Beige #f5e6c8, Olive #5a6e2c; tekstur organik hangat' :
-        visualStyle === 'cyberpunk'      ? 'GAYA CYBERPUNK NEON: background hitam #000, aksen Neon Biru #00f3ff dan Neon Pink #ff003c, text-shadow:0 0 10px #00f3ff pada nama' : ''
-
-      const fontInstruction = typo
-        ? `FONT WAJIB: heading/nama pakai "${typo.fonts.split(' + ')[0]}" (Google Fonts), body pakai "${typo.fonts.split(' + ')[1]}" — load keduanya via <link> dan set di tailwind.config fontFamily`
-        : ''
-
-      const ornamentInstruction =
-        ornamentStyle === 'floral-svg'    ? 'ORNAMEN: SVG inline bunga, daun, dan ranting di setiap divider antar section' :
-        ornamentStyle === 'geometric-svg' ? 'ORNAMEN: SVG bintang 8 sudut dan arabesk Islam di divider dan sudut section' :
-        ornamentStyle === 'minimal-line'  ? 'ORNAMEN: garis tipis horizontal dengan diamond SVG di tengah sebagai divider, bersih dan minimalis' :
-        ornamentStyle === 'mandala'       ? 'ORNAMEN: SVG mandala lingkaran konsentris di header section-hero dan footer' :
-        ornamentStyle === 'ribbon'        ? 'ORNAMEN: SVG pita melengkung di border atas dan bawah setiap section' : ''
+      const selectedBg = bgCustomImage
+        ? { css: `html,body,[id^="section-"]{background-image:url('${bgCustomImage}')!important;background-size:cover!important;background-position:center!important;background-attachment:fixed!important}`, prompt: 'BACKGROUND PER SECTION: html, body, dan SETIAP section (id^="section-") WAJIB pakai background:transparent agar gambar background html/body terlihat di seluruh halaman. Sesuaikan warna teks dengan gambar (teks terang jika gambar gelap, teks gelap jika gambar terang).' }
+        : BACKGROUND_PRESETS.find(p => p.id === bgPresetId) ?? BACKGROUND_PRESETS[0]
 
       const stylePrompt = [
-        paletteInstruction,
-        bgInstruction,
-        animInstruction,
-        visualInstruction,
-        fontInstruction,
-        ornamentInstruction,
+        selectedBg.prompt,
         musicUrl.trim() ? `MUSIK: embed <audio src="${musicUrl.trim()}" loop autoplay> dan floating button play/pause fixed bottom-right` : '',
         socialMedia.trim() ? `MEDSOS/HASHTAG: tampilkan "${socialMedia.trim()}" di section footer` : '',
         aiTheme.trim(),
       ].filter(Boolean).join('\n')
 
+      // ── Pass 1: design brief ───────────────────────────────────────────
+      let brief = ''
+      try {
+        const briefRes = await fetch('/api/ai/brief', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ theme: stylePrompt, details: detailsStr, templateId, refImage }),
+        })
+        if (briefRes.ok) {
+          const briefData = await briefRes.json()
+          brief = briefData.brief ?? ''
+        }
+      } catch { /* brief gagal — lanjut tanpa brief */ }
+
+      // ── Pass 2: generate HTML ──────────────────────────────────────────
+      setAiPhase('html')
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: stylePrompt, details: detailsStr, templateId, refImage }),
+        body: JSON.stringify({ theme: stylePrompt, details: detailsStr, templateId, refImage, brief }),
       })
       const data = await res.json()
       if (!res.ok || !data.customHtml) {
         throw new Error(data.error || `HTTP ${res.status}`)
       }
 
-      const { sections: detected, values } = extractSections(data.customHtml)
-      setGeneratedHtml(data.customHtml)
+      const finalHtml = selectedBg.css
+        ? injectBackground(data.customHtml, selectedBg.css)
+        : data.customHtml
+
+      const { sections: detected, values } = extractSections(finalHtml)
+      setGeneratedHtml(finalHtml)
+      setPreviewHtml(finalHtml)
       setSections(detected)
       setEditValues(values)
       setActiveSection(detected[0]?.id ?? null)
@@ -373,12 +420,19 @@ export default function NewInvitationClient() {
       setError(err instanceof Error ? err.message : 'AI gagal generate, coba lagi.')
     } finally {
       setAiLoading(false)
+      setAiPhase(null)
     }
   }
 
   function updateField(key: string, value: string) {
     setEditValues(prev => ({ ...prev, [key]: value }))
-    setGeneratedHtml(prev => prev ? applyEdit(prev, key, value) : prev)
+    setGeneratedHtml(prev => {
+      if (!prev) return prev
+      const updated = applyEdit(prev, key, value)
+      clearTimeout(previewDebounceRef.current)
+      previewDebounceRef.current = setTimeout(() => setPreviewHtml(updated), 400)
+      return updated
+    })
   }
 
   async function createInvitation(payload: {
@@ -392,11 +446,11 @@ export default function NewInvitationClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...payload, templateId }),
       })
-      if (!res.ok) throw new Error()
-      const inv = await res.json()
-      router.push(`/dashboard/edit/${inv.id}`)
-    } catch {
-      setError('Terjadi kesalahan, coba lagi.')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+      router.push(`/dashboard/edit/${data.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan, coba lagi.')
       setLoading(false)
     }
   }
@@ -423,7 +477,7 @@ export default function NewInvitationClient() {
             <span style={{ fontSize: 14, fontWeight: 600, color: '#1a1a1a' }}>{generatedTitle}</span>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {error && <span style={{ fontSize: 12, color: '#e53e3e' }}>{error}</span>}
+            {error && <span style={{ fontSize: 11, color: '#e53e3e', maxWidth: 360, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{error}</span>}
             <button
               onClick={() => createInvitation({ title: generatedTitle, customHtml: generatedHtml! })}
               disabled={loading}
@@ -463,7 +517,12 @@ export default function NewInvitationClient() {
                   {sections.map(sec => (
                     <button
                       key={sec.id}
-                      onClick={() => setActiveSection(sec.id)}
+                      onClick={() => {
+                        setActiveSection(sec.id)
+                        setTimeout(() => {
+                          previewIframeRef.current?.contentWindow?.postMessage({ type: 'scrollTo', ids: [sec.id] }, '*')
+                        }, 60)
+                      }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
                         padding: '8px 14px', borderRadius: 20,
@@ -548,7 +607,15 @@ export default function NewInvitationClient() {
               {/* Wrapper: clip ke ukuran phone, iframe di-scale dari 390px */}
               <div style={{ width: 240, height: 480, overflow: 'hidden', flexShrink: 0 }}>
                 <iframe
-                  srcDoc={makePreviewSrc(generatedHtml)}
+                  ref={previewIframeRef}
+                  srcDoc={makePreviewSrc(previewHtml ?? generatedHtml)}
+                  onLoad={() => {
+                    if (activeSection) {
+                      setTimeout(() => {
+                        previewIframeRef.current?.contentWindow?.postMessage({ type: 'scrollTo', ids: [activeSection] }, '*')
+                      }, 100)
+                    }
+                  }}
                   style={{
                     width: 390, height: 780,
                     border: 'none', display: 'block',
@@ -583,39 +650,7 @@ export default function NewInvitationClient() {
       </div>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px' }}>
-        {/* Stepper */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-          <StepDot active={step === 'template'} done={step !== 'template'} number={1} label="Pilih template" />
-          <div style={{ flex: 1, height: 1, background: step !== 'template' ? '#1a1a1a' : '#e0e0e0' }} />
-          <StepDot active={step === 'details'} done={false} number={2} label="Detail undangan" />
-        </div>
-
-        {step === 'template' ? (
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
-            <TemplatePicker onSelect={handleTemplateSelect} />
-          </div>
-        ) : (
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
-
-            {/* Template badge */}
-            {templateId && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '12px 20px', borderBottom: '1px solid #f0f0f0', background: '#fafafa',
-              }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: TEMPLATE_META[templateId].accent }} />
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{TEMPLATE_META[templateId].label}</span>
-                  <span style={{ fontSize: 12, color: '#aaa', marginLeft: 8 }}>{TEMPLATE_META[templateId].category}</span>
-                </div>
-                <button
-                  onClick={() => setStep('template')}
-                  style={{ fontSize: 12, color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                >
-                  Ganti
-                </button>
-              </div>
-            )}
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #eee', overflow: 'hidden' }}>
 
             {/* AI section */}
             <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid #f0f0f0' }}>
@@ -631,106 +666,70 @@ export default function NewInvitationClient() {
                 AI membuat satu halaman undangan digital yang unik. Setelah generate, kamu bisa edit per section.
               </p>
 
-              {/* Palet warna */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Palet warna</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {COLOR_PALETTES.map(p => (
-                    <button key={p.id} onClick={() => setColorPalette(p.id)} disabled={busy} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px',
-                      borderRadius: 20, border: colorPalette === p.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
-                      background: colorPalette === p.id ? '#f5f5f5' : '#fff',
-                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
+              {/* Background undangan */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 10 }}>Background undangan</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                  {BACKGROUND_PRESETS.map(bg => {
+                    const active = bgPresetId === bg.id && !bgCustomImage
+                    return (
+                      <button
+                        key={bg.id}
+                        onClick={() => { setBgPresetId(bg.id); setBgCustomImage(null); setBgCustomImageName('') }}
+                        disabled={busy}
+                        title={bg.label}
+                        style={{
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                          padding: '6px 4px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+                          border: active ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
+                          background: active ? '#f5f5f5' : '#fff',
+                        }}
+                      >
+                        <div style={{
+                          width: 48, height: 32, borderRadius: 5,
+                          background: bg.thumb,
+                          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.08)',
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}>
+                          {active && (
+                            <div style={{
+                              position: 'absolute', inset: 0, display: 'flex',
+                              alignItems: 'center', justifyContent: 'center',
+                              background: 'rgba(0,0,0,0.25)',
+                            }}>
+                              <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>✓</span>
+                            </div>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 10, color: '#555', textAlign: 'center', lineHeight: 1.2 }}>{bg.label}</span>
+                      </button>
+                    )
+                  })}
+
+                  {/* Custom upload */}
+                  <label
+                    title="Upload gambar background"
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+                      padding: '6px 4px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+                      border: bgCustomImage ? '2px solid #1a1a1a' : '1.5px dashed #c0c0c0',
+                      background: bgCustomImage ? '#f5f5f5' : '#fafafa',
+                    }}
+                  >
+                    <div style={{
+                      width: 48, height: 32, borderRadius: 5, overflow: 'hidden',
+                      background: bgCustomImage ? `url(${bgCustomImage}) center/cover` : '#f0f0ee',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <span style={{ display: 'flex', gap: 2 }}>
-                        {p.colors.map((c, i) => <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />)}
-                      </span>
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Background style */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Background</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {BG_STYLES.map(b => (
-                    <button key={b.id} onClick={() => setBgStyle(b.id)} disabled={busy} style={{
-                      padding: '6px 12px', borderRadius: 20,
-                      border: bgStyle === b.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
-                      background: bgStyle === b.id ? '#1a1a1a' : '#fff',
-                      color: bgStyle === b.id ? '#fff' : '#555',
-                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
-                    }}>{b.label}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Animasi */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Animasi</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {ANIM_LEVELS.map(a => (
-                    <button key={a.id} onClick={() => setAnimLevel(a.id)} disabled={busy} style={{
-                      padding: '6px 14px', borderRadius: 20,
-                      border: animLevel === a.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
-                      background: animLevel === a.id ? '#1a1a1a' : '#fff',
-                      color: animLevel === a.id ? '#fff' : '#555',
-                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
-                    }}>{a.label}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Gaya visual */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Gaya visual</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {VISUAL_STYLES.map(v => (
-                    <button key={v.id} onClick={() => setVisualStyle(v.id)} disabled={busy} style={{
-                      padding: '6px 12px', borderRadius: 20,
-                      border: visualStyle === v.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
-                      background: visualStyle === v.id ? '#1a1a1a' : '#fff',
-                      color: visualStyle === v.id ? '#fff' : '#555',
-                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
-                    }}>{v.label}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tipografi */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Tipografi</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {TYPOGRAPHY_PAIRS.map(t => (
-                    <button key={t.id} onClick={() => setTypoPair(t.id)} disabled={busy} style={{
-                      padding: '6px 12px', borderRadius: 20,
-                      border: typoPair === t.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
-                      background: typoPair === t.id ? '#1a1a1a' : '#fff',
-                      color: typoPair === t.id ? '#fff' : '#555',
-                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
-                    }}>
-                      <span>{t.label}</span>
-                      <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.6 }}>{t.fonts}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Ornamen */}
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, fontWeight: 500, color: '#555', display: 'block', marginBottom: 8 }}>Ornamen</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {ORNAMENT_STYLES.map(o => (
-                    <button key={o.id} onClick={() => setOrnamentStyle(o.id)} disabled={busy} style={{
-                      padding: '6px 12px', borderRadius: 20,
-                      border: ornamentStyle === o.id ? '2px solid #1a1a1a' : '1.5px solid #e0e0e0',
-                      background: ornamentStyle === o.id ? '#1a1a1a' : '#fff',
-                      color: ornamentStyle === o.id ? '#fff' : '#555',
-                      cursor: busy ? 'default' : 'pointer', fontSize: 12, fontWeight: 500,
-                    }}>{o.label}</button>
-                  ))}
+                      {!bgCustomImage && <span style={{ fontSize: 16 }}>+</span>}
+                      {bgCustomImage && <div style={{ position: 'relative', width: '100%', height: '100%', backgroundImage: `url(${bgCustomImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}><div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>✓</span></div></div>}
+                    </div>
+                    <span style={{ fontSize: 10, color: '#555', textAlign: 'center', lineHeight: 1.2 }}>
+                      {bgCustomImage ? bgCustomImageName.slice(0, 8) + '…' : 'Upload'}
+                    </span>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleBgImageUpload} disabled={busy} style={{ display: 'none' }} />
+                  </label>
                 </div>
               </div>
 
@@ -853,7 +852,9 @@ export default function NewInvitationClient() {
                   transition: 'all .15s',
                 }}
               >
-                {aiLoading ? <><Spinner /> Membuat halaman...</> : <><span>✨</span> Generate Undangan</>}
+                {aiLoading
+                  ? <><Spinner /> {aiPhase === 'brief' ? 'Merancang konsep desain...' : 'Membuat halaman undangan...'}</>
+                  : <><span>✨</span> Generate Undangan</>}
               </button>
             </div>
 
@@ -896,7 +897,6 @@ export default function NewInvitationClient() {
               </div>
             )}
           </div>
-        )}
       </div>
     </div>
   )
